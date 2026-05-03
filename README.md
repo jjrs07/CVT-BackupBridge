@@ -49,12 +49,11 @@ This Proof of Concept simulates an on-premises SQL Server environment hosted on 
 
 The solution enables:
 
-* SQL Server Full backups
-* Differential backups
-* Transaction Log backups
-* Automated upload to AWS S3
-* Download backups from S3 when recovery is needed
-* Restore validation testing
+* **Tiered Backup Strategy:** Support for Full, Differential, and Transaction Log backups.
+* **Cloud Synchronization:** Automated, multi-threaded upload to AWS S3.
+* **Disaster Recovery:** High-speed retrieval from S3 during recovery events.
+* **Integrity Validation:** Automated file-size and path comparison between source and recovery targets.
+* **Scheduled Automation:** Integration with Windows Task Scheduler and SQL Server Agent for autonomous operation.
 
 ---
 
@@ -66,140 +65,51 @@ The recovery workflow is modular and can be adapted to either staged file downlo
 
 ---
 
+## Usage Guide
+
+To get started with CVT BackupBridge, follow the phased documentation in the `Documents/` folder:
+
+1.  **[Environment Preparation](Documents/01-environment-preparation.md):** Build the Azure VM and S3 Bucket.
+2.  **[Backup Generation](Documents/02-backup-generation.md):** Configure T-SQL jobs for Full, Diff, and Log backups.
+3.  **[Local Storage](Documents/03-local-backup-storage.md):** Organize the local staging area and naming conventions.
+4.  **[S3 Synchronization](Documents/04-upload-to-s3.md):** Configure and schedule the PowerShell uploader.
+5.  **[Recovery Retrieval](Documents/05-recovery-download.md):** Use the multi-threaded downloader for DR events.
+6.  **[Restore & Validation](Documents/06-restore-validation.md):** Execute the T-SQL restore sequence and verify integrity.
+
+---
+
 ## Lab Environment
 
 ### Infrastructure
-
-- Azure Virtual Machine
-- Windows Server 2019
-
-### Database Platform
-
-- SQL Server 2019 Developer Edition
+*   **Provider:** Microsoft Azure
+*   **OS:** Windows Server 2019
+*   **Database:** SQL Server 2019 Developer Edition
 
 ### Cloud Services
+*   **Storage:** AWS S3 (Standard Storage Class)
+*   **Security:** AWS IAM (Least Privilege Scoped Access)
 
-- AWS S3 Bucket
-- AWS IAM
-
-### Automation & Scheduling
-
-- PowerShell
-- SQL Server Agent
-- Windows Task Scheduler
-
-### Test Databases
-
-- AdventureWorks
-- LargeDB (custom large database for backup size testing)
-
----
-
-## BackupBridge Workflow
-The workflow below demonstrates how CVT BackupBridge extends traditional on-premises SQL backups into secure offsite cloud recovery capability.
-
-1. [Prepare SQL Server and AWS S3 environment](Documents/01-environment-preparation.md)
-2. [Generate Full / Differential / Log backups](Documents/02-backup-generation.md)
-3. [Store backups locally](Documents/03-local-backup-storage.md)
-4. [Upload backups to AWS S3](Documents/04-upload-to-s3.md)
-5. [Download backups during recovery events](Documents/05-recovery-download.md)
-6. [Restore and validate recoverability](Documents/06-restore-validation.md)
-
----
-
-## Results
-
-* ✅ Backup files uploaded successfully to AWS S3
-* ✅ Download from S3 completed successfully
-* ✅ Restore test completed successfully
-* ✅ Upload and download performance met lab expectations
-* ✅ On-premises to cloud backup model validated
-
----
-
-## Key Benefits for Companies
-
-* Adds offsite backup without requiring full cloud migration
-* Lowers disaster recovery risk
-* Protects against local backup hardware failure
-* Supports ransomware resilience strategy
-* Uses existing SQL Server backup processes
-* Provides scalable storage growth through AWS S3
-
----
-
-## Lessons Learned
-
-* Proper IAM permissions are critical
-* Naming standards simplify automation
-* Backup validation is as important as backup creation
-* Automation reduces human error
-* Hybrid cloud can modernize legacy environments
-
----
-
-## Operational Considerations
-
-Actual backup upload and recovery performance will vary depending on the environment. Key factors include:
-
-### Network Speed / Bandwidth
-
-Available internet throughput significantly affects upload and download times between on-premises environments and AWS S3.
-
-### Backup File Size
-
-Larger databases require more time to back up, transfer, and restore.
-
-### Backup Type
-
-* Full backups are largest and slowest to transfer
-* Differential backups are smaller and faster
-* Transaction log backups are typically quickest
-
-### Latency / Geographic Distance
-
-Physical distance between the server location and AWS Region may impact transfer speed.
-
-### Multipart Upload Tuning
-
-For slower or unstable connections, AWS S3 multipart upload settings may require optimization to improve reliability and resume interrupted transfers.
-
-### Disk Performance
-
-Local storage read/write speed can affect both backup generation time and restore performance.
-
-### Compression
-
-Using SQL backup compression can reduce file size and transfer time.
-
-### Scheduling Windows
-
-Large backups should ideally run during off-peak business hours to reduce bandwidth contention.
-
-### Security Controls
-
-Firewalls, proxies, endpoint protection, or deep packet inspection may affect throughput or connectivity.
-
-Production implementations should be benchmarked and tuned according to actual database size, network throughput, and recovery objectives.
+### Automation Stack
+*   **Scripting:** PowerShell 5.1+
+*   **CLI:** AWS CLI v2
+*   **Scheduling:** SQL Server Agent / Windows Task Scheduler
 
 ---
 
 ## Future Enhancements
 
-* Scheduled automated jobs
-* Backup retention cleanup
-* Email alerting
-* Encryption at rest and in transit
-* Multi-region replication
-* Terraform deployment
-* Support for MySQL backups
-* Support for PostgreSQL backups
+* Email alerting and Slack/Discord notifications.
+* Encryption at rest (KMS) and in transit.
+* Multi-region S3 replication for cross-region DR.
+* Terraform/Bicep for Infrastructure as Code (IaC) deployment.
+* Support for open-source engines (MySQL, PostgreSQL).
+* Lifecycle policies for automatic S3 transition to Glacier.
 
 ---
 
 ## Author
 
-James
+**James Santos**
 Cloud Virtuoso Tech (CVT)
 
 *Tech solutions played in harmony.*
