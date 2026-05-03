@@ -130,6 +130,3 @@ To prevent the local `H:\SQLBackups` drive from reaching capacity, a retention p
 Once local backups are generated successfully, proceed to:
 
 [03 - Local Backup Storage](03-local-backup-storage.md)
-
-![Backup Files on H Drive](Images/Backup_Files_H_Drive.png)
-*Figure 2: Verified backup files stored in the dedicated H:\SQLBackups directory.*
