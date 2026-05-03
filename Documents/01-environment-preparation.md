@@ -1,167 +1,139 @@
-# 01 - Environment Preparation
+# 01 - Environment Preparation 🏗️
 
-This document outlines the initial setup required to build the CVT BackupBridge lab environment. The goal of this phase is to simulate an on-premises SQL Server workload and prepare AWS cloud storage for offsite backup protection.
+This document outlines the initial setup required to build the **CVT BackupBridge** lab environment. The goal is to simulate an on-premises SQL Server workload and prepare AWS cloud storage for offsite backup protection.
 
 ---
 
-## Objective
+## 📋 Table of Contents
+1. [Objective](#objective)
+2. [Solution Components](#solution-components)
+3. [Step 1 - Build Azure SQL Server VM](#step-1---build-azure-sql-server-vm)
+4. [Step 2 - Create Dedicated Backup Storage](#step-2---create-dedicated-backup-storage)
+5. [Step 3 - Create Test Databases](#step-3---create-test-databases)
+6. [Step 4 - Prepare AWS S3 Bucket](#step-4---prepare-aws-s3-bucket)
+7. [Step 5 - Create IAM User for Script Access](#step-5---create-iam-user-for-script-access)
+8. [Validation Checklist](#validation-checklist)
+
+---
+
+## 🎯 Objective
 
 Prepare the following components:
-
-* SQL Server host environment
-* Test databases
-* Dedicated local backup storage
-* AWS S3 bucket
-* IAM access for automation scripts
+*   SQL Server host environment
+*   Test databases (including scaling simulation)
+*   Dedicated local backup storage
+*   AWS S3 bucket
+*   IAM access for automation scripts
 
 ---
 
-## Solution Components
+## 🏗️ Solution Components
 
 ### Simulated On-Premises SQL Server
+The "on-premises" environment is hosted on an Azure Virtual Machine to simulate a remote corporate data center.
 
-The on-premises production server was simulated using an Azure Virtual Machine.
-
-**Platform Used:**
-
-* Microsoft Azure Virtual Machine
-* Windows Server 2019
-* SQL Server 2019 Developer Edition
-
-This environment represents a typical company server hosting SQL Server workloads on-premises.
+**Platform Details:**
+*   **Provider:** Microsoft Azure
+*   **OS:** Windows Server 2019
+*   **Database:** SQL Server 2019 Developer Edition
 
 ---
 
-## Step 1 - Build Azure SQL Server VM
+## 🚀 Step 1 - Build Azure SQL Server VM
 
-Provision a Windows Server virtual machine in Azure. 
-Alternatively look for a Windows Server 2019 with SQL Server 2019 installed image in the Marketplace.
+Provision a Windows Server virtual machine in Azure.
+
+> [!TIP]
+> Use the **"SQL Server 2019 on Windows Server 2019"** image from the Azure Marketplace to save time. It comes with SQL Server and SSMS pre-installed.
 
 ### Recommended Baseline Configuration
+*   **Compute:** Minimum 2 vCPU / 8 GB RAM
+*   **Storage:** Premium SSD (for consistent IOPS)
+*   **Security:** RDP enabled (restricted to your client IP)
 
-* Windows Server 2019
-* Minimum 2 vCPU
-* Minimum 8 GB RAM
-* Premium SSD preferred
-* Public access restricted as needed
-* RDP enabled for administration
-
-### Install SQL Server
-
-Install:
-
-* SQL Server 2019 Developer Edition
-* SQL Server Management Studio (SSMS)
-
-Verify SQL connectivity after installation.
-
-Recommended: Update the OS and SQL server to the latest patch releases. This follows production best practices.
+### Post-Installation Tasks
+1.  Install **SQL Server Management Studio (SSMS)** if not using a pre-configured image.
+2.  Verify local connectivity to the SQL instance.
+3.  **Update:** Run Windows Update and install the latest SQL Server Cumulative Updates (CU).
 
 ---
 
-## Step 2 - Create Dedicated Backup Storage
+## 💾 Step 2 - Create Dedicated Backup Storage
 
-Create a separate volume or drive dedicated for SQL backup files.
+Create a separate volume or drive dedicated exclusively for SQL backup files.
 
-### Example
+### Configuration
+*   **Drive Letter:** `E:\` (Example)
+*   **Path:** `E:\SQLBackups`
 
-```text
-E:\SQLBackups
-```
+> [!IMPORTANT]
+> In Azure, you must attach a **Data Disk** to the VM. Once attached, use `diskmgmt.msc` (Disk Management) to initialize the disk, create a simple volume, and format it as NTFS.
 
 ### Why This Matters
-
-* Separates backups from OS drive
-* Easier management
-* Better storage planning
-* Cleaner automation paths
+*   **Separation of Concerns:** Keeps the OS drive clean and prevents it from filling up during large backup operations.
+*   **Performance:** Spreads I/O load across multiple physical/virtual disks.
+*   **Automation:** Provides a static, predictable path for PowerShell scripts.
 
 ---
 
-## Step 3 - Create Test Databases
-
-Create sample databases to validate backup and restore operations. You can use an existing demo database, a new custom one, or both.
+## 🗄️ Step 3 - Create Test Databases
 
 ### A. Initial Database Setup
-
-* **Option 1:** Download and restore the official Microsoft [AdventureWorks](https://learn.microsoft.com/en-us/sql/samples/adventureworks-install-configure) sample database.
-* **Option 2:** Create a new empty database (e.g., `LargeDB`).
+Create sample databases to validate backup and restore operations.
+*   **Option 1:** Restore the [AdventureWorks](https://learn.microsoft.com/en-us/sql/samples/adventureworks-install-configure) sample database.
+*   **Option 2:** Create a new empty database (e.g., `LargeDB`).
 
 ### B. Simulating Enterprise Scale (LargeDB)
+To benchmark upload/download speeds and bridge performance, we simulate a larger footprint.
 
-To truly test the "Bridge" performance (upload/download speeds), we need to simulate a larger data footprint.
-
-1. **Grow the Database:** Use the provided simulation scripts to insert dummy records and increase the file size.
-   * See: `Scripts/SQL/Increase_logsize_simulator.sql`
-   * See: `Scripts/SQL/AutoGrow_DBsize.sql`
-
-2. **Testing Goals:**
-   * Validate **Backup Duration** for larger files.
-   * Measure **Transfer Performance** (S3 Upload/Download).
-   * Benchmark **Restore Timing** in a recovery scenario.
+1.  **Grow the Database:** Use the provided simulation scripts to insert records and increase file size.
+    *   `Scripts/SQL/Increase_logsize_simulator.sql`
+    *   `Scripts/SQL/AutoGrow_DBsize.sql`
+2.  **Testing Goals:**
+    *   Validate **Backup Duration**.
+    *   Measure **S3 Transfer Performance**.
+    *   Benchmark **Disaster Recovery (DR) Restore Timing**.
 
 ---
 
-## Step 4 - Prepare AWS S3 Bucket
+## ☁️ Step 4 - Prepare AWS S3 Bucket
 
-Create an Amazon S3 bucket to serve as offsite backup storage.
+Create an Amazon S3 bucket to serve as the offsite "vault."
 
-### Example Naming Convention
-
-```text
-cvt-backupbridge-backups
-```
-
-### Recommendations
-
-* Enable versioning if required
-* Block public access
-* Use private bucket policy
-* Choose region nearest workload if practical
+### Setup Guide
+*   **Bucket Name:** e.g., `cvt-backupbridge-backups`
+*   **Access:** Block all public access.
+*   **Versioning:** Optional (useful for ransomware protection).
 
 ---
 
-## Step 5 - Create IAM User for Script Access
+## 🔐 Step 5 - Create IAM User for Script Access
 
-Create an IAM user with scoped permissions for the backup automation scripts.
+Create a dedicated IAM user with "Programmatic Access" for the automation scripts.
 
-### Minimum Permissions
+### Security Configuration
+1.  **Least Privilege:** Attach the policy template located at: `Scripts/cvt-s3-policy.json`.
+2.  **Credentials:** Generate an `Access Key ID` and `Secret Access Key`.
 
-* List bucket
-* Upload objects
-* Download objects
-* Delete objects (optional if retention cleanup is automated)
-
-### Security Best Practices
-
-* Use least privilege access
-* Rotate access keys regularly
-* Store credentials securely
-* Do not hardcode secrets in public repositories
+> [!WARNING]
+> **NEVER** commit your AWS Access Keys or Secrets to source control. Use environment variables or a secure local credential store.
 
 ---
 
-## Validation Checklist
+## ✅ Validation Checklist
 
-Before moving to the next phase, confirm:
-
-* Azure VM is accessible
-* SQL Server instance is running
-* Test databases exist
-* Backup drive is available
-* S3 bucket is created
-* IAM credentials are working
-
----
-
-## Output of This Phase
-
-At the end of this phase, you should have a working SQL Server environment ready to generate backups and a secure AWS S3 bucket ready to receive backup files.
+Before moving to the next phase, ensure:
+- [ ] Azure VM is accessible via RDP.
+- [ ] SQL Server instance is responsive.
+- [ ] Test databases (`AdventureWorks`/`LargeDB`) are online.
+- [ ] Dedicated `E:\SQLBackups` drive is formatted and ready.
+- [ ] AWS S3 bucket is created and private.
+- [ ] IAM User has been created with the correct policy applied.
 
 ---
 
-## Next Step
+## 🏁 Output of This Phase
 
-Proceed to:
+You now have a fully functional "On-Premises" SQL environment and a secure Cloud Storage target. You are ready to automate the bridge.
 
-[02 - Backup Generation](02-backup-generation.md)
+**Next Step:** [02 - Backup Generation](02-backup-generation.md)
