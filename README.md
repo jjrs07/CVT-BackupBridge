@@ -62,19 +62,7 @@ The solution enables:
 
 ## Architecture
 
-```text
-On-Prem SQL Server VM (Azure)
-        ↓
- Local Backup Drive
-        ↓
- PowerShell Upload Script
-        ↓
- AWS S3 Bucket
-        ↓
- PowerShell Download Script
-        ↓
- Restore Validation
-```
+![Architecture](Documents/Images/Architecture.png)
 
 ---
 
