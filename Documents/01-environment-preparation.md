@@ -63,6 +63,8 @@ Provision a Windows Server virtual machine in Azure.
 
 ## Step 2 - Create Dedicated Backup Storage
 
+![Disk Placement](Images/disk_placement.png)
+
 Create a separate volume or drive dedicated exclusively for SQL backup files.
 
 ### Configuration
