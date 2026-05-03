@@ -57,12 +57,19 @@ CVT BackupBridge utilizes a standard three-tier backup approach:
 
 All backups are directed to the dedicated storage initialized in Phase 01: `H:\SQLBackups`.
 
+> [!TIP]
+> **Cost & Performance Optimization**
+> Always use the `COMPRESSION` flag in your backup commands. Compressed backups are significantly smaller, which leads to:
+> 1.  **Lower Storage Costs:** Reduced footprint in both local storage and AWS S3.
+> 2.  **Faster Uploads:** Smaller files transfer to the cloud much more quickly.
+> 3.  **Reduced I/O:** Faster backup completion times on the SQL Server host.
+
 ### 1. Full Backup
 ```sql
 BACKUP DATABASE [AdventureWorks]
 TO DISK = 'H:\SQLBackups\AdventureWorks_Full.bak'
 WITH FORMAT, MEDIANAME = 'SQLServerBackups', NAME = 'Full Backup of AdventureWorks', 
-CHECKSUM, STATS = 10;
+CHECKSUM, COMPRESSION, STATS = 10;
 GO
 ```
 
@@ -71,7 +78,7 @@ GO
 BACKUP DATABASE [AdventureWorks]
 TO DISK = 'H:\SQLBackups\AdventureWorks_Diff.bak'
 WITH DIFFERENTIAL, FORMAT, NAME = 'Diff Backup of AdventureWorks', 
-CHECKSUM, STATS = 10;
+CHECKSUM, COMPRESSION, STATS = 10;
 GO
 ```
 
@@ -80,9 +87,32 @@ GO
 BACKUP LOG [AdventureWorks]
 TO DISK = 'H:\SQLBackups\AdventureWorks_Log.trn'
 WITH FORMAT, NAME = 'Log Backup of AdventureWorks', 
-CHECKSUM, STATS = 10;
+CHECKSUM, COMPRESSION, STATS = 10;
 GO
 ```
+
+![Full Backup Success](Images/Full_Backup_Success.png)
+*Figure 1: Successful execution of a compressed Full Backup in SSMS.*
+
+> [!TIP]
+> **Ad-hoc Backups:** If you need to take a manual backup without affecting the existing backup sequence or log chain, use the `COPY_ONLY` option.
+
+---
+
+## SQL Server Agent Automation
+
+In a production environment, backups must be automated using **SQL Server Agent Jobs**.
+
+### Recommended Job Configuration:
+1.  **Full Backup Job:** Runs weekly (e.g., Sunday at 12:00 AM).
+2.  **Differential Job:** Runs daily (e.g., Daily at 10:00 PM).
+3.  **Log Backup Job:** Runs frequently (e.g., every 15 or 30 minutes).
+
+### Automation Strategy:
+Each job should contain a T-SQL step with the commands provided above. Ensure that the SQL Server Agent service account has **Full Control** permissions on the `H:\SQLBackups` directory.
+
+> [!NOTE]
+> **Future Upgrade:** Automated SQL Server Agent Jobs are not yet implemented in the current lab environment. For now, backups are generated manually using the provided T-SQL scripts. Automation is planned for a future project phase.
 
 ---
 
@@ -100,3 +130,6 @@ To prevent the local `H:\SQLBackups` drive from reaching capacity, a retention p
 Once local backups are generated successfully, proceed to:
 
 [03 - Local Backup Storage](03-local-backup-storage.md)
+
+![Backup Files on H Drive](Images/Backup_Files_H_Drive.png)
+*Figure 2: Verified backup files stored in the dedicated H:\SQLBackups directory.*
