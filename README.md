@@ -93,6 +93,7 @@ LargeDB was created using dummy records to simulate larger enterprise backup fil
 ---
 
 ## BackupBridge Workflow
+The workflow below demonstrates how CVT BackupBridge extends traditional on-premises SQL backups into secure offsite cloud recovery capability.
 
 1. Prepare SQL Server and AWS S3 environment
 2. Generate Full / Differential / Log backups
