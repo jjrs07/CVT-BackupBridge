@@ -9,17 +9,34 @@ $Source = "<Input your local backup source path here, e.g. H:\SQLBackups>"
 $Target = "<Input your local restore target path here, e.g. H:\SQLRestore>"
 
 # ============================================================
-# INITIALIZATION & VALIDATION
+# UTILITY FUNCTIONS
 # ============================================================
+
+function Write-ValidationResult {
+    param(
+        [string]$Message,
+        [ConsoleColor]$Color = "White"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Write-Host "[$timestamp] $Message" -ForegroundColor $Color
+}
+
+# ============================================================
+# INITIALIZATION & PRE-FLIGHT CHECKS
+# ============================================================
+
+Write-ValidationResult "Starting validation comparison..." "Cyan"
+Write-ValidationResult "Source: $Source"
+Write-ValidationResult "Target: $Target"
 
 # Verify that both paths exist
 if (!(Test-Path $Source)) {
-    Write-Host "Source path not found: $Source" -ForegroundColor Red
+    Write-ValidationResult "ERROR: Source path not found: $Source" "Red"
     exit 1
 }
 
 if (!(Test-Path $Target)) {
-    Write-Host "Target path not found: $Target" -ForegroundColor Red
+    Write-ValidationResult "ERROR: Target path not found: $Target" "Red"
     exit 1
 }
 
@@ -29,18 +46,20 @@ $TargetFiles = Get-ChildItem $Target -Recurse -File
 
 # Check for empty directories
 if ($SourceFiles.Count -eq 0) {
-    Write-Host "No files found in source directory." -ForegroundColor Yellow
+    Write-ValidationResult "WARNING: No files found in source directory." "Yellow"
     exit 0
 }
 
 if ($TargetFiles.Count -eq 0) {
-    Write-Host "No files found in target directory." -ForegroundColor Yellow
+    Write-ValidationResult "WARNING: No files found in target directory." "Yellow"
     exit 0
 }
 
 # ============================================================
 # COMPARISON LOGIC
 # ============================================================
+
+Write-ValidationResult "Comparing $($SourceFiles.Count) source files against $($TargetFiles.Count) target files..."
 
 # Map files to objects using relative paths for accurate comparison
 $SourceList = $SourceFiles | ForEach-Object {
@@ -61,13 +80,22 @@ $TargetList = $TargetFiles | ForEach-Object {
 $Diff = Compare-Object $SourceList $TargetList -Property RelativePath, Length
 
 # ============================================================
-# RESULTS
+# RESULTS REPORTING
 # ============================================================
 
+Write-ValidationResult "=========================================" "Cyan"
+
 if ($null -eq $Diff) {
-    Write-Host "SUCCESS: Source and Target directories are identical." -ForegroundColor Green
+    Write-ValidationResult "SUCCESS: Source and Target directories are identical." "Green"
+    Write-ValidationResult "Verification completed: All files match in path and size." "Green"
 }
 else {
-    Write-Host "WARNING: Differences detected between source and target." -ForegroundColor Yellow
-    $Diff | Format-Table -AutoSize
+    Write-ValidationResult "WARNING: Differences detected between source and target." "Yellow"
+    
+    # Beautify the difference output
+    $Diff | Select-Object @{N='Difference';E={if($_.SideIndicator -eq '<='){'Missing in Target'}else{'Extra in Target'}}}, RelativePath, @{N='Size(Bytes)';E={$_.Length}} | Format-Table -AutoSize
+    
+    Write-ValidationResult "Validation failed: Some files are missing or have size discrepancies." "Red"
 }
+
+Write-ValidationResult "=========================================" "Cyan"
