@@ -1,14 +1,14 @@
 # S3 Upload Queue - Max 4 Simultaneous Uploads
 # Usage: Edit the $files array with your file paths then run the script
 
-$bucket  = "s3://cvtech-sql-backups/"
+$bucket  = "<Input your S3 bucket name here, e.g. s3://my-backups>"
 $maxJobs = 4
-$logFile = "C:\s3_logs\s3-upload-log.txt"
+$logFile = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
 
 # ============================================================
 # ADD YOUR BACKUP ROOT HERE
 # ============================================================
-$backupRoot = 'H:\SQLBackups'
+$backupRoot = '<Input your backup root path here, e.g. H:\SQLBackups>'
 
 # Discover all .bak and .trn files under H:\SQLBackups and preserve server/database/type structure.
 $files = Get-ChildItem -Path $backupRoot -Recurse -File | Where-Object { $_.Extension -in '.bak', '.trn' } |
@@ -94,7 +94,7 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
 
         # Use proper AWS CLI credentials with efficiency flags
         $proc = Start-Process -FilePath "aws" `
-            -ArgumentList "s3 cp `"$file`" `"$bucket$folder/`" --quiet --storage-class STANDARD" `
+            -ArgumentList "s3 cp `"$file`" `"$bucket$folder/`" --quiet --storage-class STANDARD --region $region" `
             -RedirectStandardOutput $outFile `
             -RedirectStandardError "$outFile.err" `
             -NoNewWindow -PassThru
