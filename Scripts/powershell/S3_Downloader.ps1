@@ -95,7 +95,7 @@ while ($queue.Count -gt 0 -or $activeDownloads.Count -gt 0) {
 
         # Start AWS CLI download with multipart support (automatic for large files)
         $proc = Start-Process -FilePath "aws" `
-            -ArgumentList "s3 cp `"$bucket$s3File`" `"$localPath`" --quiet --region us-east-1" `
+            -ArgumentList "s3 cp `"$bucket$s3File`" `"$localPath`" --quiet --region $region" `
             -RedirectStandardOutput $outFile `
             -RedirectStandardError "$outFile.err" `
             -NoNewWindow -PassThru
