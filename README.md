@@ -8,19 +8,19 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 
 ## Table of Contents
 
-* Problem Statement
-* Solution Overview
-* Architecture
-* Lab Environment
-* Databases Used
-* Backup Flow
-* Tools Used
-* Results
-* Key Benefits for Companies
-* Lessons Learned
-* Operational Considerations
-* Future Enhancements
-* Author
+- [Problem Statement](#problem-statement)
+- [Solution Overview](#solution-overview)
+- [Architecture](#architecture)
+- [Lab Environment](#lab-environment)
+- [Databases Used](#databases-used)
+- [Backup Flow](#backup-flow)
+- [Tools Used](#tools-used)
+- [Results](#results)
+- [Key Benefits for Companies](#key-benefits-for-companies)
+- [Lessons Learned](#lessons-learned)
+- [Operational Considerations](#operational-considerations)
+- [Future Enhancements](#future-enhancements)
+- [Author](#author)
 
 ---
 
