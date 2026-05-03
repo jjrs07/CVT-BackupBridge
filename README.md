@@ -58,8 +58,8 @@ The recovery workflow is modular and can be adapted to either staged file downlo
 To get started with CVT BackupBridge, follow the phased documentation in the `Documents/` folder:
 
 1.  **[Environment Preparation](Documents/01-environment-preparation.md):** Build the Azure VM and S3 Bucket.
-2.  **[Backup Generation](Documents/02-backup-generation.md):** Configure T-SQL jobs for Full, Diff, and Log backups.
-3.  **[Local Storage](Documents/03-local-backup-storage.md):** Organize the local staging area and naming conventions.
+2.  **[Local Storage](Documents/02-local-backup-storage.md):** Organize the local staging area and naming conventions.
+3.  **[Backup Generation](Documents/03-backup-generation.md):** Configure T-SQL jobs for Full, Diff, and Log backups.
 4.  **[S3 Synchronization](Documents/04-upload-to-s3.md):** Configure and schedule the PowerShell uploader.
 5.  **[Recovery Retrieval](Documents/05-recovery-download.md):** Use the multi-threaded downloader for DR events.
 6.  **[Restore & Validation](Documents/06-restore-validation.md):** Execute the T-SQL restore sequence and verify integrity.

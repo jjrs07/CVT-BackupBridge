@@ -1,4 +1,4 @@
-# 03 - Local Backup Storage
+# 02 - Local Backup Storage
 
 This document outlines the organization and management of the local backup repository. Proper storage structure is critical for the automation scripts to correctly identify, validate, and synchronize files to the cloud.
 
@@ -75,10 +75,13 @@ Local storage is a transient "staging area" rather than long-term storage.
 *   **Capacity Monitoring:** SQL Server Agent alerts should be configured for low disk space on the `H:` drive.
 *   **Cleanup Trigger:** The `S3_Uploader.ps1` script is responsible for verifying a successful cloud upload before purging the local copy.
 
+![Backup Files on H Drive](Images/Backup_Files_H_Drive.png)
+*Figure 1: Verified backup files stored in the dedicated H:\SQLBackups directory.*
+
 ---
 
 ## Next Step
 
-With the local storage organized, proceed to the cloud integration phase:
+With the local storage organized, proceed to the backup generation phase:
 
-[04 - Upload to S3](04-upload-to-s3.md)
+[03 - Backup Generation](03-backup-generation.md)

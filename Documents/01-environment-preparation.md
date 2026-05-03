@@ -23,8 +23,8 @@ This document outlines the initial setup required to build the **CVT BackupBridg
 ---
 
 ## Objective
-
-Prepare the following components:
+...
+**Next Step:** [02 - Local Backup Storage](02-local-backup-storage.md)
 *   SQL Server host environment
 *   Test databases (including scaling simulation)
 *   Dedicated local backup storage
@@ -202,4 +202,4 @@ Before moving to the next phase, ensure:
 
 You now have a fully functional "On-Premises" SQL environment and a secure Cloud Storage target. You are ready to automate the bridge.
 
-**Next Step:** [02 - Backup Generation](02-backup-generation.md)
+**Next Step:** [02 - Local Backup Storage](02-local-backup-storage.md)

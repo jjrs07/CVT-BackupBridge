@@ -1,4 +1,4 @@
-# 02 - Backup Generation
+# 03 - Backup Generation
 
 This document details the SQL Server backup strategy and implementation for the CVT BackupBridge project. The goal is to establish a reliable local backup routine that serves as the source for cloud synchronization.
 
@@ -55,7 +55,7 @@ CVT BackupBridge utilizes a standard three-tier backup approach:
 
 ## T-SQL Implementation
 
-All backups are directed to the dedicated storage initialized in Phase 01: `H:\SQLBackups`.
+All backups are directed to the dedicated storage initialized in Phase 02: `H:\SQLBackups`.
 
 > [!TIP]
 > **Cost & Performance Optimization**
@@ -129,4 +129,4 @@ To prevent the local `H:\SQLBackups` drive from reaching capacity, a retention p
 
 Once local backups are generated successfully, proceed to:
 
-[03 - Local Backup Storage](03-local-backup-storage.md)
+[04 - Upload to S3](04-upload-to-s3.md)
