@@ -1,0 +1,23 @@
+# AWS/Security
+*accessKeys.csv
+*.env
+*.credentials
+
+# Large Files / VM Snapshots
+VM Build/
+*.zip
+*.7z
+*.iso
+
+# Logs and Temp
+*.log
+*.tmp
+s3_logs/
+Backup/
+
+# Word Docs / Manuals (Optional: Keep if you want them in the repo)
+POC Screenshots.docx
+
+# OS files
+.DS_Store
+Thumbs.db

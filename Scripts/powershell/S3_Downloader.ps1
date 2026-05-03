@@ -1,0 +1,195 @@
+# S3 Download Queue - Max 4 Simultaneous Downloads
+# Usage: Edit the $downloadList array with your S3 files then run the script
+# Multipart downloads are handled automatically by AWS CLI for large files
+
+$bucket        = "s3://cvtech-sql-backups/"
+$maxJobs       = 4
+$localBackupDir = "H:\SQLRestore\"  # Local restore directory
+$logFile       = "C:\s3_logs\s3-download-log.txt"
+
+# ============================================================
+# DISCOVER S3 FILES TO DOWNLOAD
+# ============================================================
+# Get all objects from S3 bucket recursively
+$s3Objects = aws s3 ls $bucket --recursive | Where-Object { $_ -match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+\d+\s+(.+)$' } | ForEach-Object { $matches[1] }
+
+if (-not $s3Objects) {
+    Write-Host "No files found in S3 bucket $bucket"
+    exit 1
+}
+
+# Build download list from S3 objects
+$downloadList = $s3Objects
+
+# ============================================================
+# SCRIPT - Do not modify below this line
+# ============================================================
+
+# Create log directory if it doesn't exist
+$logDir = Split-Path $logFile
+if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+
+# Clear previous log file on script start
+if (Test-Path $logFile) { Remove-Item $logFile -Force }
+
+# Create backup directory if it doesn't exist
+if (-not (Test-Path $localBackupDir)) { New-Item -ItemType Directory -Path $localBackupDir -Force | Out-Null }
+
+function Write-Log {
+    param($Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $entry = "[$timestamp] $Message"
+    Write-Host $entry
+    Add-Content -Path $logFile -Value $entry
+}
+
+function Format-Duration {
+    param($seconds)
+    $ts = [TimeSpan]::FromSeconds($seconds)
+    if ($ts.Hours -gt 0) {
+        return "{0:00}:{1:00}:{2:00}" -f $ts.Hours, $ts.Minutes, $ts.Seconds
+    }
+    return "{0:00}:{1:00}" -f $ts.Minutes, $ts.Seconds
+}
+
+$downloadStartTime = Get-Date
+
+Write-Log "===== S3 Download Queue Started ====="
+Write-Log "Total files to download: $($downloadList.Count)"
+Write-Log "Max simultaneous downloads: $maxJobs"
+Write-Log "Source bucket: $bucket"
+Write-Log "Local destination: $localBackupDir"
+Write-Log "========================================="
+
+# Build queue with file metadata
+$queue = [System.Collections.Queue]::new()
+foreach ($s3File in $downloadList) {
+    $localPath = Join-Path $localBackupDir $s3File
+    $localDir = Split-Path $localPath -Parent
+    if (-not (Test-Path $localDir)) { New-Item -ItemType Directory -Path $localDir -Force | Out-Null }
+    
+    $queue.Enqueue(@{ 
+        S3File          = $s3File
+        LocalPath       = $localPath
+        Retries         = 0 
+    })
+}
+
+$activeDownloads = @{}
+$completed       = 0
+$failed          = 0
+$total           = $downloadList.Count
+$maxRetries      = 3
+
+while ($queue.Count -gt 0 -or $activeDownloads.Count -gt 0) {
+
+    # Start new downloads if slots are available
+    while ($activeDownloads.Count -lt $maxJobs -and $queue.Count -gt 0) {
+        $item              = $queue.Dequeue()
+        $s3File            = $item.S3File
+        $localPath         = $item.LocalPath
+        $retries           = $item.Retries
+        $fileName          = Split-Path $s3File -Leaf
+        $outFile           = "$logDir\$fileName.log"
+
+        # Start AWS CLI download with multipart support (automatic for large files)
+        $proc = Start-Process -FilePath "aws" `
+            -ArgumentList "s3 cp `"$bucket$s3File`" `"$localPath`" --quiet --region us-east-1" `
+            -RedirectStandardOutput $outFile `
+            -RedirectStandardError "$outFile.err" `
+            -NoNewWindow -PassThru
+
+        $activeDownloads[$proc.Id] = @{
+            Process        = $proc
+            S3File         = $s3File
+            LocalPath      = $localPath
+            StartTime      = Get-Date
+            OutFile        = $outFile
+            Retries        = $retries
+        }
+        $retryLabel = if ($retries -gt 0) { " (Retry $retries/$maxRetries)" } else { "" }
+        Write-Log "STARTED  | $s3File (PID: $($proc.Id))$retryLabel | Queue remaining: $($queue.Count)"
+    }
+
+    # Check for completed processes
+    foreach ($procId in @($activeDownloads.Keys)) {
+        $entry   = $activeDownloads[$procId]
+        $proc    = $entry.Process
+
+        if ($proc.HasExited) {
+            $endTime     = Get-Date
+            $durationSec = [math]::Max(1, ($endTime - $entry.StartTime).TotalSeconds)
+            $mbps        = ""
+            $downloadSuccess = $false
+
+            # Check if download succeeded by verifying file exists and has content
+            if ((Test-Path $entry.LocalPath) -and (Get-Item $entry.LocalPath).Length -gt 0) {
+                $downloadSuccess = $true
+                $fileSize = [math]::Round((Get-Item $entry.LocalPath).Length / 1GB, 2)
+                $mbps = [math]::Round(($fileSize * 1024 * 8) / $durationSec, 1)
+                if ($proc.ExitCode -eq 0) {
+                    Write-Log "DEBUG | $($entry.S3File) | Process exit code 0 - file verified locally"
+                } else {
+                    Write-Log "DEBUG | $($entry.S3File) | Non-zero exit code but file verified with size - treating as success"
+                }
+            }
+
+            if ($downloadSuccess) {
+                $completed++
+                $durationText = Format-Duration $durationSec
+                $fileSize = [math]::Round((Get-Item $entry.LocalPath).Length / 1GB, 2)
+                Write-Log "COMPLETE | $($entry.S3File) | Size: $fileSize GB | Duration: $durationText | Avg Speed: $mbps Mbps | Progress: $completed/$total"
+            } else {
+                $errOutput = ""
+                if (Test-Path "$($entry.OutFile).err") {
+                    $errOutput = Get-Content "$($entry.OutFile).err" -Raw | ForEach-Object { $_.Trim() }
+                }
+                if (-not $errOutput -and (Test-Path "$($entry.OutFile)")) {
+                    $errOutput = Get-Content "$($entry.OutFile)" -Raw | ForEach-Object { $_.Trim() }
+                }
+                if (-not $errOutput) { $errOutput = "Exit code: $($proc.ExitCode) (Check log files for details)" }
+                
+                if ($entry.Retries -lt $maxRetries) {
+                    $nextRetry = $entry.Retries + 1
+                    Write-Log "RETRYING | $($entry.S3File) | Attempt $nextRetry/$maxRetries | Error: $errOutput"
+                    $queue.Enqueue(@{ 
+                        S3File          = $entry.S3File
+                        LocalPath       = $entry.LocalPath
+                        Retries         = $nextRetry 
+                    })
+                } else {
+                    $failed++
+                    $durationText = Format-Duration $durationSec
+                    Write-Log "FAILED   | $($entry.S3File) | Duration: $durationText | Max retries reached | Error: $errOutput"
+                    # Remove incomplete file if it exists
+                    if (Test-Path $entry.LocalPath) {
+                        Remove-Item $entry.LocalPath -Force -ErrorAction SilentlyContinue
+                    }
+                }
+            }
+
+            # Keep output and error logs for debugging
+            # Uncomment below to auto-cleanup after reviewing
+            # Remove-Item $entry.OutFile -ErrorAction SilentlyContinue
+            # Remove-Item "$($entry.OutFile).err" -ErrorAction SilentlyContinue
+
+            $activeDownloads.Remove($procId)
+        }
+    }
+
+    Start-Sleep -Seconds 10
+}
+
+Write-Log "========================================="
+Write-Log "===== Download Queue Complete ====="
+$downloadEndTime = Get-Date
+$downloadDurationSec = [math]::Max(1, ($downloadEndTime - $downloadStartTime).TotalSeconds)
+$downloadDurationText = Format-Duration $downloadDurationSec
+Write-Log "Total: $total | Completed: $completed | Failed: $failed | Elapsed: $downloadDurationText"
+Write-Log "Files saved to: $localBackupDir"
+Write-Log "========================================="
+if ($failed -gt 0) {
+    Write-Log "Check error logs in: $logDir"
+    Write-Log "Run: aws sts get-caller-identity (to verify AWS credentials are working)"
+    Write-Log "Run: aws s3 ls $bucket (to test bucket access)"
+}
