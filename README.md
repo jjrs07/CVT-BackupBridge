@@ -12,7 +12,7 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 - [Solution Overview](#solution-overview)
 - [Architecture](#architecture)
 - [Lab Environment](#lab-environment)
-- [Backup Flow](#backup-flow)
+- [BackupBridge Workflow](#backupbridge-workflow)
 - [Tools Used](#tools-used)
 - [Results](#results)
 - [Key Benefits for Companies](#key-benefits-for-companies)
@@ -92,23 +92,14 @@ LargeDB was created using dummy records to simulate larger enterprise backup fil
 
 ---
 
-## Backup Flow
+## BackupBridge Workflow
 
-1. Build Azure SQL Server VM
-2. Create test databases
-3. Create AWS S3 bucket
-4. Create IAM user with bucket access
-5. Run SQL backups:
-
-   * Full
-   * Differential
-   * Transaction Log
-6. Store backups in dedicated backup drive
-7. Run PowerShell uploader script
-8. Upload backup files to S3
-9. Run PowerShell downloader script
-10. Download backup files from S3
-11. Perform SQL restore validation
+1. Prepare SQL Server and AWS S3 environment
+2. Generate Full / Differential / Log backups
+3. Store backups locally
+4. Upload backups to AWS S3
+5. Download backups during recovery events
+6. Restore and validate recoverability
 
 ---
 
@@ -130,7 +121,7 @@ LargeDB was created using dummy records to simulate larger enterprise backup fil
 * ✅ Download from S3 completed successfully
 * ✅ Restore test completed successfully
 * ✅ Upload and download performance met lab expectations
-* ✅ Hybrid cloud backup model validated
+* ✅ On-premises to cloud backup model validated
 
 ---
 
