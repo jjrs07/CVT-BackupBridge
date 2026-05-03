@@ -146,14 +146,37 @@ Create an Amazon S3 bucket to serve as the offsite "vault."
 
 ## Step 5 - Create IAM User for Script Access
 
-Create a dedicated IAM user with "Programmatic Access" for the automation scripts.
+This step ensures the automation scripts can communicate with AWS securely using the **Principle of Least Privilege**. We will create a custom policy and a dedicated user with **Programmatic Access** only (no console login).
 
-### Security Configuration
-1.  **Least Privilege:** Attach the policy template located at: `Scripts/cvt-s3-policy.json`.
-2.  **Credentials:** Generate an `Access Key ID` and `Secret Access Key`.
+### A. Create the Scoped IAM Policy
+1.  Navigate to **IAM > Policies** in the AWS Console.
+2.  Click **Create policy** and select the **JSON** tab.
+3.  Copy and paste the content from `Scripts/cvt-s3-policy.json`.
+    *   *Note: Ensure you have updated the bucket name placeholder in the JSON to match your actual bucket.*
+4.  Click **Next: Tags** > **Next: Review**.
+5.  Name the policy `CVT-BackupBridge-Policy` and click **Create policy**.
+
+### B. Create the Programmatic IAM User
+1.  Navigate to **IAM > Users** and click **Create user**.
+2.  **User details:** Name the user `cvt-backup-service`.
+3.  **Set permissions:**
+    *   Select **Attach policies directly**.
+    *   Search for and select the `CVT-BackupBridge-Policy` you just created.
+4.  **Review and create:** Click **Create user**.
+
+### C. Generate Access Keys
+1.  Select the newly created `cvt-backup-service` user.
+2.  Go to the **Security credentials** tab.
+3.  Scroll down to **Access keys** and click **Create access key**.
+4.  Select **Command Line Interface (CLI)** as the use case.
+5.  **Retrieve Keys:** Copy the **Access Key ID** and **Secret Access Key**.
+
+> [!IMPORTANT]
+> **Programmatic Access vs. Console Access:**
+> By default, this user has no password and cannot log in to the AWS Management Console website. It can only interact with AWS via the CLI or PowerShell using the Access Keys. This significantly reduces the attack surface.
 
 > [!WARNING]
-> **NEVER** commit your AWS Access Keys or Secrets to source control. Use environment variables or a secure local credential store.
+> **NEVER** commit your AWS Access Keys or Secrets to source control. Use environment variables or a secure local credential store on your SQL VM.
 
 ---
 
