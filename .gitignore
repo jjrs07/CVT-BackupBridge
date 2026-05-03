@@ -15,8 +15,12 @@ VM Build/
 s3_logs/
 Backup/
 
-# Word Docs / Manuals (Optional: Keep if you want them in the repo)
-POC Screenshots.docx
+# Word Docs / Manuals
+*.docx
+
+# Scratchpad / Setup Notes
+Setup SQL Server POC.md
+Initial Versions/
 
 # OS files
 .DS_Store
