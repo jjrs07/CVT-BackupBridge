@@ -126,7 +126,7 @@ To benchmark upload/download speeds and bridge performance, we simulate a larger
 Create an Amazon S3 bucket to serve as the offsite "vault."
 
 ### Setup Guide
-*   **Bucket Name:** e.g., `cvt-backupbridge-backups`
+*   **Bucket Name:** e.g., `cvtech-sql-backups`
 *   **Access:** Block all public access.
 *   **Versioning:** Optional (useful for ransomware protection).
 
