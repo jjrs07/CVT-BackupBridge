@@ -1,10 +1,10 @@
-# 01 - Environment Preparation 🏗️
+# 01 - Environment Preparation
 
 This document outlines the initial setup required to build the **CVT BackupBridge** lab environment. The goal is to simulate an on-premises SQL Server workload and prepare AWS cloud storage for offsite backup protection.
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 1. [Objective](#objective)
 2. [Solution Components](#solution-components)
 3. [Step 1 - Build Azure SQL Server VM](#step-1---build-azure-sql-server-vm)
@@ -16,7 +16,7 @@ This document outlines the initial setup required to build the **CVT BackupBridg
 
 ---
 
-## 🎯 Objective
+## Objective
 
 Prepare the following components:
 *   SQL Server host environment
@@ -27,7 +27,7 @@ Prepare the following components:
 
 ---
 
-## 🏗️ Solution Components
+## Solution Components
 
 ### Simulated On-Premises SQL Server
 The "on-premises" environment is hosted on an Azure Virtual Machine to simulate a remote corporate data center.
@@ -39,7 +39,7 @@ The "on-premises" environment is hosted on an Azure Virtual Machine to simulate 
 
 ---
 
-## 🚀 Step 1 - Build Azure SQL Server VM
+## Step 1 - Build Azure SQL Server VM
 
 Provision a Windows Server virtual machine in Azure.
 
@@ -58,7 +58,7 @@ Provision a Windows Server virtual machine in Azure.
 
 ---
 
-## 💾 Step 2 - Create Dedicated Backup Storage
+## Step 2 - Create Dedicated Backup Storage
 
 Create a separate volume or drive dedicated exclusively for SQL backup files.
 
@@ -76,7 +76,7 @@ Create a separate volume or drive dedicated exclusively for SQL backup files.
 
 ---
 
-## 🗄️ Step 3 - Create Test Databases
+## Step 3 - Create Test Databases
 
 ### A. Initial Database Setup
 Create sample databases to validate backup and restore operations.
@@ -96,7 +96,7 @@ To benchmark upload/download speeds and bridge performance, we simulate a larger
 
 ---
 
-## ☁️ Step 4 - Prepare AWS S3 Bucket
+## Step 4 - Prepare AWS S3 Bucket
 
 Create an Amazon S3 bucket to serve as the offsite "vault."
 
@@ -107,7 +107,7 @@ Create an Amazon S3 bucket to serve as the offsite "vault."
 
 ---
 
-## 🔐 Step 5 - Create IAM User for Script Access
+## Step 5 - Create IAM User for Script Access
 
 Create a dedicated IAM user with "Programmatic Access" for the automation scripts.
 
@@ -120,7 +120,7 @@ Create a dedicated IAM user with "Programmatic Access" for the automation script
 
 ---
 
-## ✅ Validation Checklist
+## Validation Checklist
 
 Before moving to the next phase, ensure:
 - [ ] Azure VM is accessible via RDP.
@@ -132,7 +132,7 @@ Before moving to the next phase, ensure:
 
 ---
 
-## 🏁 Output of This Phase
+## Output of This Phase
 
 You now have a fully functional "On-Premises" SQL environment and a secure Cloud Storage target. You are ready to automate the bridge.
 
