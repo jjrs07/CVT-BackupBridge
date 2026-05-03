@@ -126,11 +126,11 @@ LargeDB was created using dummy records to simulate larger enterprise backup fil
 
 ## Results
 
-✅ Backup files uploaded successfully to AWS S3
-✅ Download from S3 completed successfully
-✅ Restore test completed successfully
-✅ Upload and download performance met lab expectations
-✅ Hybrid cloud backup model validated
+* ✅ Backup files uploaded successfully to AWS S3
+* ✅ Download from S3 completed successfully
+* ✅ Restore test completed successfully
+* ✅ Upload and download performance met lab expectations
+* ✅ Hybrid cloud backup model validated
 
 ---
 
