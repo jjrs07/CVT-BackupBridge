@@ -13,7 +13,6 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 - [Architecture](#architecture)
 - [Lab Environment](#lab-environment)
 - [BackupBridge Workflow](#backupbridge-workflow)
-- [Tools Used](#tools-used)
 - [Results](#results)
 - [Key Benefits for Companies](#key-benefits-for-companies)
 - [Lessons Learned](#lessons-learned)
@@ -69,26 +68,30 @@ The recovery workflow is modular and can be adapted to either staged file downlo
 
 ## Lab Environment
 
-### Simulated On-Premises Server
+### Infrastructure
 
-* Azure Virtual Machine
-* Windows Server 2019
-* SQL Server 2019 Developer Edition
+- Azure Virtual Machine
+- Windows Server 2019
 
-### Cloud Storage
+### Database Platform
 
-* AWS S3 Bucket
+- SQL Server 2019 Developer Edition
 
-### Security
+### Cloud Services
 
-* IAM User with scoped S3 permissions
+- AWS S3 Bucket
+- AWS IAM
+
+### Automation & Scheduling
+
+- PowerShell
+- SQL Server Agent
+- Windows Task Scheduler
 
 ### Test Databases
 
-* AdventureWorks
-* LargeDB (custom large database for backup size testing)
-
-LargeDB was created using dummy records to simulate larger enterprise backup files.
+- AdventureWorks
+- LargeDB (custom large database for backup size testing)
 
 ---
 
@@ -101,18 +104,6 @@ The workflow below demonstrates how CVT BackupBridge extends traditional on-prem
 4. [Upload backups to AWS S3](Documents/04-upload-to-s3.md)
 5. [Download backups during recovery events](Documents/05-recovery-download.md)
 6. [Restore and validate recoverability](Documents/06-restore-validation.md)
-
----
-
-## Tools Used
-
-* Microsoft SQL Server 2019
-* PowerShell
-* SQL Server Agent
-* Windows Task Scheduler
-* AWS S3
-* AWS IAM
-* Azure Virtual Machine
 
 ---
 
