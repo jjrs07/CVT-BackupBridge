@@ -25,17 +25,19 @@ The objective of this phase is to:
 
 ## Directory Structure
 
-A standardized directory structure ensures that PowerShell automation scripts (Uploader/Downloader) can find files without complex searching.
+A standardized directory structure ensures that PowerShell automation scripts (Uploader/Downloader) can find files without complex searching. This project utilizes a production-grade hierarchy that accounts for multi-server environments.
 
 ### Recommended Layout
 ```text
 H:\SQLBackups\
-├───Full\           (Weekly/Daily full backups)
-├───Differential\   (Daily/Intra-day diff backups)
-└───Logs\           (Transaction log backups)
+└───{ServerName}\
+    └───{DatabaseName}\
+        ├───FULL\           (Weekly/Daily full backups)
+        ├───DIFF\           (Daily/Intra-day diff backups)
+        └───LOG\            (Transaction log backups)
 ```
 
-By separating backup types into subfolders, we reduce the complexity of the S3 synchronization logic and make manual recovery easier.
+By separating backups by server, database, and type, we reduce the complexity of the S3 synchronization logic and make manual recovery significantly faster in large environments.
 
 ---
 
@@ -44,12 +46,12 @@ By separating backup types into subfolders, we reduce the complexity of the S3 s
 Consistency in naming allows scripts to parse metadata (like database name and date) directly from the filename.
 
 ### Pattern
-`{DatabaseName}_{BackupType}_{YYYYMMDD_HHMMSS}.{Extension}`
+`SQLServer_{DatabaseName}_{BackupType}_{YYYYMMDD_HHMS}.{Extension}`
 
 ### Examples
-*   **Full:** `AdventureWorks_Full_20260503_220000.bak`
-*   **Diff:** `AdventureWorks_Diff_20260504_100000.bak`
-*   **Log:** `AdventureWorks_Log_20260504_101500.trn`
+*   **Full:** `SQLServer_AdventureWorks2019_Full_20260504_0336.bak`
+*   **Diff:** `SQLServer_AdventureWorks2019_Diff_20260504_1000.bak`
+*   **Log:** `SQLServer_AdventureWorks2019_Log_20260504_1015.trn`
 
 ---
 
