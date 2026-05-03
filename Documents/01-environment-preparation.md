@@ -2,6 +2,12 @@
 
 This document outlines the initial setup required to build the **CVT BackupBridge** lab environment. The goal is to simulate an on-premises SQL Server workload and prepare AWS cloud storage for offsite backup protection.
 
+> [!CAUTION]
+> **Cloud Account & Cost Warning**
+> *   **Free Tier:** It is highly recommended to use **Azure Free Account** and **AWS Free Tier** when following these procedures.
+> *   **Budget Limits:** Set up **Budget Alerts** and **Cost Limits** in both Azure and AWS billing consoles immediately upon account creation to prevent unexpected charges.
+> *   **Liability Disclaimer:** The author is not responsible or liable for any expenses, charges, or financial costs incurred in your cloud accounts while following this guide. You are solely responsible for monitoring your own cloud consumption and costs.
+
 ---
 
 ## Table of Contents
