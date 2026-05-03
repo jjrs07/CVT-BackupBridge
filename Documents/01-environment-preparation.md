@@ -68,6 +68,7 @@ Create a separate volume or drive dedicated exclusively for SQL backup files.
 ### Configuration
 *   **Drive Letter:** `H:\` (Example)
 *   **Path:** `H:\SQLBackups`
+*   **Recommended Size:** 500 GB to 1 TB (to accommodate LargeDB and enterprise-scale backup files)
 
 > [!IMPORTANT]
 > In Azure, you must attach a **Data Disk** to the VM. Once attached, use `diskmgmt.msc` (Disk Management) to initialize the disk, create a simple volume, and format it as NTFS.
