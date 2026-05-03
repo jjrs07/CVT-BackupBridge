@@ -1,3 +1,84 @@
-* Download process
-* target folder
-* recovery scenarios
+# 05 - Recovery Download
+
+This document details the process for retrieving SQL Server backup files from AWS S3 for restoration. In a disaster recovery (DR) scenario, the speed and reliability of this "Inbound" bridge are critical.
+
+---
+
+## Table of Contents
+1. [Objective](#objective)
+2. [Script Overview (S3_Downloader.ps1)](#script-overview-s3_downloaderps1)
+3. [Prerequisites](#prerequisites)
+4. [Implementation Logic](#implementation-logic)
+5. [Target Staging Area](#target-staging-area)
+6. [Next Step](#next-step)
+
+---
+
+## Objective
+
+The objective of this phase is to:
+*   Securely retrieve backup files from the offsite cloud vault.
+*   Maximize download throughput using multi-threaded execution.
+*   Stage the files in a dedicated restore directory for SQL Server consumption.
+
+---
+
+## Script Overview (S3_Downloader.ps1)
+
+The retrieval process is powered by `S3_Downloader.ps1`, a robust PowerShell script designed for high-volume data transfers.
+
+### Key Features
+*   **Multi-Threaded Processing:** Downloads multiple files simultaneously to saturate available network bandwidth.
+*   **Recursive Discovery:** Automatically identifies the directory structure in S3 (Full, Diff, Logs) and recreates it locally.
+*   **Automatic Retries:** Implements a retry mechanism (default: 3 attempts) for transient network failures.
+*   **Comprehensive Logging:** Tracks performance metrics, including transfer speeds (Mbps) and durations.
+
+---
+
+## Prerequisites
+
+To perform a recovery download, the following must be in place:
+
+1.  **AWS CLI:** Installed and configured on the recovery server.
+2.  **IAM Permissions:** The IAM user must have `s3:GetObject` and `s3:ListBucket` permissions (as defined in `cvt-s3-policy.json`).
+3.  **Local Storage:** Sufficient disk space on the recovery volume to hold the downloaded backup files.
+
+---
+
+## Implementation Logic
+
+The downloader executes the following steps:
+
+1.  **Object Discovery:** Recursively lists all objects in the specified S3 bucket.
+2.  **Queue Initialization:** Builds a local directory structure matching the S3 hierarchy.
+3.  **Parallel Execution:** Spawns background processes (using `Start-Process`) to execute `aws s3 cp` commands concurrently.
+4.  **Monitoring:** Continuously polls active jobs and reaps completed ones, logging speed and progress.
+5.  **Final Verification:** Confirms that all files are present and have non-zero lengths before exiting.
+
+---
+
+## Target Staging Area
+
+Files should be downloaded to a dedicated volume to avoid contention with the production SQL Server data files.
+
+### Example
+`H:\SQLRestore`
+
+### Directory Layout (After Download)
+```text
+H:\SQLRestore\
+├───Full\
+├───Differential\
+└───Logs\
+```
+
+> [!NOTE]
+> By maintaining the same directory structure as the local backup storage, the restoration scripts can easily identify the sequence of files required for a point-in-time recovery.
+
+---
+
+## Next Step
+
+With the backup files staged locally, the final phase is to perform the SQL Server restoration and validate data integrity:
+
+[06 - Restore Validation](06-restore-validation.md)
