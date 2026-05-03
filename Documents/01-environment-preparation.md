@@ -34,7 +34,8 @@ This environment represents a typical company server hosting SQL Server workload
 
 ## Step 1 - Build Azure SQL Server VM
 
-Provision a Windows Server virtual machine in Azure.
+Provision a Windows Server virtual machine in Azure. 
+Alternatively look for a Windows Server 2019 with SQL Server 2019 installed image in the Marketplace.
 
 ### Recommended Baseline Configuration
 
@@ -53,6 +54,8 @@ Install:
 * SQL Server Management Studio (SSMS)
 
 Verify SQL connectivity after installation.
+
+Recommended: Update the OS and SQL server to the latest patch releases. This follows production best practices.
 
 ---
 
@@ -77,22 +80,25 @@ E:\SQLBackups
 
 ## Step 3 - Create Test Databases
 
-Create sample databases to validate backup and restore operations.
+Create sample databases to validate backup and restore operations. You can use an existing demo database, a new custom one, or both.
 
-### Databases Used
+### A. Initial Database Setup
 
-* AdventureWorks
-  n- LargeDB
+* **Option 1:** Download and restore the official Microsoft [AdventureWorks](https://learn.microsoft.com/en-us/sql/samples/adventureworks-install-configure) sample database.
+* **Option 2:** Create a new empty database (e.g., `LargeDB`).
 
-### LargeDB Purpose
+### B. Simulating Enterprise Scale (LargeDB)
 
-LargeDB was created to simulate larger enterprise backup files by inserting dummy records and increasing data size.
+To truly test the "Bridge" performance (upload/download speeds), we need to simulate a larger data footprint.
 
-This helps test:
+1. **Grow the Database:** Use the provided simulation scripts to insert dummy records and increase the file size.
+   * See: `Scripts/SQL/Increase_logsize_simulator.sql`
+   * See: `Scripts/SQL/AutoGrow_DBsize.sql`
 
-* backup duration
-* transfer performance
-* restore timing
+2. **Testing Goals:**
+   * Validate **Backup Duration** for larger files.
+   * Measure **Transfer Performance** (S3 Upload/Download).
+   * Benchmark **Restore Timing** in a recovery scenario.
 
 ---
 
