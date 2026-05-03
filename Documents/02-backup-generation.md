@@ -31,7 +31,7 @@ To support transaction log backups and point-in-time recovery, databases must be
 ```sql
 USE [master];
 GO
-ALTER DATABASE [AdventureWorks] SET RECOVERY FULL;
+ALTER DATABASE [AdventureWorks2019] SET RECOVERY FULL;
 ALTER DATABASE [LargeDB] SET RECOVERY FULL;
 GO
 ```
@@ -66,28 +66,28 @@ All backups are directed to the dedicated storage initialized in Phase 01: `H:\S
 
 ### 1. Full Backup
 ```sql
-BACKUP DATABASE [AdventureWorks]
-TO DISK = 'H:\SQLBackups\AdventureWorks_Full.bak'
-WITH FORMAT, MEDIANAME = 'SQLServerBackups', NAME = 'Full Backup of AdventureWorks', 
-CHECKSUM, COMPRESSION, STATS = 10;
+BACKUP DATABASE [AdventureWorks2019]
+TO DISK = N'H:\SQLBackups\sqlserver\AdventureWorks\FULL\SQLServer_AdventureWorks_Full_20260504_0336.bak'
+WITH NOFORMAT, NOINIT, NAME = N'AdventureWorks2019-Full Database Backup', 
+SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10;
 GO
 ```
 
 ### 2. Differential Backup
 ```sql
-BACKUP DATABASE [AdventureWorks]
-TO DISK = 'H:\SQLBackups\AdventureWorks_Diff.bak'
-WITH DIFFERENTIAL, FORMAT, NAME = 'Diff Backup of AdventureWorks', 
-CHECKSUM, COMPRESSION, STATS = 10;
+BACKUP DATABASE [AdventureWorks2019]
+TO DISK = N'H:\SQLBackups\sqlserver\AdventureWorks\DIFF\SQLServer_AdventureWorks_Diff_20260504_1000.bak'
+WITH DIFFERENTIAL, NOFORMAT, NOINIT, NAME = N'AdventureWorks2019-Diff Database Backup', 
+SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10;
 GO
 ```
 
 ### 3. Transaction Log Backup
 ```sql
-BACKUP LOG [AdventureWorks]
-TO DISK = 'H:\SQLBackups\AdventureWorks_Log.trn'
-WITH FORMAT, NAME = 'Log Backup of AdventureWorks', 
-CHECKSUM, COMPRESSION, STATS = 10;
+BACKUP LOG [AdventureWorks2019]
+TO DISK = N'H:\SQLBackups\sqlserver\AdventureWorks\LOG\SQLServer_AdventureWorks_Log_20260504_1015.trn'
+WITH NOFORMAT, NOINIT, NAME = N'AdventureWorks2019-Log Database Backup', 
+SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10;
 GO
 ```
 
