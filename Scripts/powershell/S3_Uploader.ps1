@@ -1,18 +1,23 @@
-# S3 Upload Queue - Max 4 Simultaneous Uploads
-# Usage: Edit the $files array with your file paths then run the script
-
-$bucket  = "<Input your S3 bucket name here, e.g. s3://my-backups>"
-$region  = "<Input your AWS region here, e.g. us-east-1>"
-$maxJobs = 4
-$logFile = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
+# S3 Multi-Threaded Backup Uploader
+# Description: Recursively discovers SQL Server backup files (.bak, .trn) and uploads them to AWS S3.
+# Supports multi-threaded processing (max simultaneous uploads) and automatic retries.
 
 # ============================================================
-# ADD YOUR BACKUP ROOT HERE
+# CONFIGURATION
 # ============================================================
-$backupRoot = '<Input your backup root path here, e.g. H:\SQLBackups>'
+$bucket     = "<Input your S3 bucket name here, e.g. s3://my-backups>"
+$region     = "<Input your AWS region here, e.g. us-east-1>"
+$maxJobs    = 4
+$logFile    = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
+$backupRoot = "<Input your backup root path here, e.g. H:\SQLBackups>"
 
-# Discover all .bak and .trn files under H:\SQLBackups and preserve server/database/type structure.
-$files = Get-ChildItem -Path $backupRoot -Recurse -File | Where-Object { $_.Extension -in '.bak', '.trn' } |
+# ============================================================
+# INITIALIZATION
+# ============================================================
+
+# Discover backup files while preserving directory structure
+$files = Get-ChildItem -Path $backupRoot -Recurse -File | 
+    Where-Object { $_.Extension -in '.bak', '.trn' } |
     Sort-Object FullName |
     Select-Object -ExpandProperty FullName
 
@@ -21,15 +26,11 @@ if (-not $files) {
     exit 1
 }
 
-# ============================================================
-# SCRIPT - Do not modify below this line
-# ============================================================
-
-# Create log directory if it doesn't exist
+# Create log directory if required
 $logDir = Split-Path $logFile
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
 
-# Clear previous log file on script start
+# Initialize log file
 if (Test-Path $logFile) { Remove-Item $logFile -Force }
 
 function Write-Log {
@@ -48,6 +49,10 @@ function Format-Duration {
     }
     return "{0:00}:{1:00}" -f $ts.Minutes, $ts.Seconds
 }
+
+# ============================================================
+# PROCESSING QUEUE
+# ============================================================
 
 $queueStartTime = Get-Date
 
@@ -72,7 +77,7 @@ $maxRetries    = 3
 
 while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
 
-    # Start new uploads if slots are available
+    # Start new upload jobs
     while ($activeUploads.Count -lt $maxJobs -and $queue.Count -gt 0) {
         $item     = $queue.Dequeue()
         $file     = $item.File
@@ -81,19 +86,20 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
         $retries  = $item.Retries
         $outFile  = "$logDir\$fileName.log"
 
-        # Build S3 upload folder from the backup folder hierarchy:
-        # H:\SQLBackups\<ServerName>\<DatabaseName>\<FULL|DIFF|LOG>\<file>.bak
-        $relativePath = $file.Substring($backupRoot.Length).TrimStart('\')
+        # Map local directory structure to S3 folders
+        # Expected structure: <ServerName>\<DatabaseName>\<Type>
+        $relativePath   = $file.Substring($backupRoot.Length).TrimStart('\')
         $relativeFolder = Split-Path $relativePath -Parent
-        $folderParts = $relativeFolder -split '\\'
+        $folderParts    = $relativeFolder -split '\\'
+        
         if ($folderParts.Length -ge 3 -and $fileName.EndsWith('.trn')) {
-            # For .trn files, force upload to LOG folder
+            # Normalize transaction log destination
             $folder = "$($folderParts[0])/$($folderParts[1])/LOG"
         } else {
             $folder = $relativeFolder -replace '\\', '/'
         }
 
-        # Use proper AWS CLI credentials with efficiency flags
+        # Execute AWS CLI upload process
         $proc = Start-Process -FilePath "aws" `
             -ArgumentList "s3 cp `"$file`" `"$bucket$folder/`" --quiet --storage-class STANDARD --region $region" `
             -RedirectStandardOutput $outFile `
@@ -110,15 +116,16 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
             OutFile    = $outFile
             Retries    = $retries
         }
-        $retryLabel = if ($retries -gt 0) { " (Retry $retries/$maxRetries)" } else { "" }
+        
+        $retryLabel  = if ($retries -gt 0) { " (Retry $retries/$maxRetries)" } else { "" }
         $folderLabel = if ($folder) { " to $folder/" } else { "" }
         Write-Log "STARTED  | $fileName ($fileSize GB)$folderLabel (PID: $($proc.Id))$retryLabel | Queue remaining: $($queue.Count)"
     }
 
-    # Check for completed processes
+    # Monitor active jobs
     foreach ($procId in @($activeUploads.Keys)) {
-        $entry   = $activeUploads[$procId]
-        $proc    = $entry.Process
+        $entry = $activeUploads[$procId]
+        $proc  = $entry.Process
 
         if ($proc.HasExited) {
             $endTime     = Get-Date
@@ -126,28 +133,26 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
             $duration    = [math]::Round($durationSec / 60, 1)
             $mbps        = [math]::Round(($entry.FileSizeGB * 1024 * 8) / $durationSec, 1)
 
-            # Check if upload succeeded by verifying file exists in S3
-            # AWS CLI sometimes returns non-zero exit codes even on success
+            # Success Verification
             $uploadSuccess = $false
             if ($proc.ExitCode -eq 0) {
                 $uploadSuccess = $true
-                Write-Log "DEBUG | $($entry.FileName) | Process exit code 0 - success"
             } else {
-                # Even if exit code is non-zero, check if file is actually in S3
+                # Fallback check: verify object exists in S3 if process exit code is non-zero
                 $s3Path = if ($entry.Folder) { "$bucket$($entry.Folder)/$($entry.FileName)" } else { "$bucket$($entry.FileName)" }
                 $checkOutput = & aws s3 ls $s3Path 2>&1
                 if ($LASTEXITCODE -eq 0 -and $checkOutput) {
                     $uploadSuccess = $true
-                    Write-Log "DEBUG | $($entry.FileName) | Non-zero exit but verified in S3 - success"
                 }
             }
 
             if ($uploadSuccess) {
                 $completed++
                 $durationText = Format-Duration $durationSec
-                $folderLabel = if ($entry.Folder) { " | Folder: $($entry.Folder)" } else { "" }
+                $folderLabel  = if ($entry.Folder) { " | Folder: $($entry.Folder)" } else { "" }
                 Write-Log "COMPLETE | $($entry.FileName) | Size: $($entry.FileSizeGB) GB | Duration: $durationText | Avg Speed: $mbps Mbps$folderLabel | Progress: $completed/$total"
             } else {
+                # Failure Handling and Error Extraction
                 $errOutput = ""
                 if (Test-Path "$($entry.OutFile).err") { 
                     $errOutput = Get-Content "$($entry.OutFile).err" -Raw | ForEach-Object { $_.Trim() }
@@ -155,7 +160,7 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
                 if (-not $errOutput -and (Test-Path "$($entry.OutFile)")) {
                     $errOutput = Get-Content "$($entry.OutFile)" -Raw | ForEach-Object { $_.Trim() }
                 }
-                if (-not $errOutput) { $errOutput = "Exit code: $($proc.ExitCode) (Check log files for details)" }
+                if (-not $errOutput) { $errOutput = "Exit code: $($proc.ExitCode)" }
                 
                 if ($entry.Retries -lt $maxRetries) {
                     $nextRetry = $entry.Retries + 1
@@ -164,15 +169,10 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
                 } else {
                     $failed++
                     $durationText = Format-Duration $durationSec
-                    $folderLabel = if ($entry.Folder) { " | Folder: $($entry.Folder)" } else { "" }
+                    $folderLabel  = if ($entry.Folder) { " | Folder: $($entry.Folder)" } else { "" }
                     Write-Log "FAILED   | $($entry.FileName) | Duration: $durationText$folderLabel | Max retries reached | Error: $errOutput"
                 }
             }
-
-            # Keep output and error logs for debugging
-            # Uncomment below to auto-cleanup after reviewing
-            # Remove-Item $entry.OutFile -ErrorAction SilentlyContinue
-            # Remove-Item "$($entry.OutFile).err" -ErrorAction SilentlyContinue
 
             $activeUploads.Remove($procId)
         }
@@ -181,15 +181,19 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
     Start-Sleep -Seconds 10
 }
 
+# ============================================================
+# FINAL REPORTING
+# ============================================================
+
 Write-Log "========================================="
 Write-Log "===== Upload Queue Complete ====="
-$queueEndTime = Get-Date
+$queueEndTime     = Get-Date
 $queueDurationSec = [math]::Max(1, ($queueEndTime - $queueStartTime).TotalSeconds)
 $queueDurationText = Format-Duration $queueDurationSec
 Write-Log "Total: $total | Completed: $completed | Failed: $failed | Elapsed: $queueDurationText"
 Write-Log "========================================="
+
 if ($failed -gt 0) {
-    Write-Log "Check error logs in: $logDir"
-    Write-Log "Run: aws sts get-caller-identity (to verify AWS credentials are working)"
-    Write-Log "Run: aws s3 ls $bucket (to test bucket access)"
+    Write-Log "Check individual log files in: $logDir"
+    Write-Log "Diagnostics: Run 'aws sts get-caller-identity' to verify AWS credentials."
 }
