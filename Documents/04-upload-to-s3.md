@@ -8,9 +8,10 @@ This document describes the synchronization process that bridges local SQL Serve
 1. [Objective](#objective)
 2. [Script Overview (S3_Uploader.ps1)](#script-overview-s3_uploaderps1)
 3. [Prerequisites](#prerequisites)
-4. [Implementation Logic](#implementation-logic)
-5. [Automation and Scheduling](#automation-and-scheduling)
-6. [Next Step](#next-step)
+4. [Script Installation](#script-installation)
+5. [Implementation Logic](#implementation-logic)
+6. [Automation and Scheduling](#automation-and-scheduling)
+7. [Next Step](#next-step)
 
 ---
 
@@ -46,15 +47,33 @@ Before running the synchronization script, ensure the following are configured o
 
 ---
 
+## Script Installation
+
+1.  **Download:** Download the `S3_Uploader.ps1` script from the `Scripts/powershell/` directory of this repository.
+2.  **Placement:** Save the script to a dedicated automation folder on the SQL Server (e.g., `C:\Scripts\`).
+3.  **Configuration:** Open the script in an editor and update the following variables:
+    *   `$bucket`: Set to your actual S3 bucket (e.g., `s3://cvtech-sql-backups`).
+    *   `$region`: Set to your AWS region (e.g., `ap-southeast-1`).
+    *   `$backupRoot`: Set to your local backup drive (e.g., `H:\SQLBackups`).
+    *   `$logFile`: Set to your desired log path (e.g., `C:\Logs\S3_Uploader.log`).
+
+---
+
 ## Implementation Logic
 
-The uploader follows a rigorous 5-step workflow:
+The uploader follows a rigorous workflow for secure cloud synchronization. It is recommended to perform a manual run before automating the task.
 
+### Step-by-Step Workflow
 1.  **Object Discovery:** Recursively scans `H:\SQLBackups` for `.bak` and `.trn` files.
 2.  **Queue Initialization:** Builds a processing queue with file metadata and size calculations.
 3.  **Parallel Execution:** Spawns `aws s3 cp` processes up to the defined concurrency limit.
 4.  **Verification:** Validates upload integrity using process exit codes and S3 object listing.
-5.  **Logging:** Records detailed telemetry to a central `.log` file for audit and troubleshooting.
+5.  **Manual Execution (Test Run):** Open PowerShell as Administrator and execute the script to verify connectivity and logic:
+    ```powershell
+    Set-Location "C:\Scripts\"
+    .\S3_Uploader.ps1
+    ```
+6.  **Logging:** Records detailed telemetry to a central `.log` file for audit and troubleshooting.
 
 ---
 
