@@ -109,6 +109,8 @@ To benchmark upload/download speeds and bridge performance, we simulate a larger
     *   Measure **S3 Transfer Performance**.
     *   Benchmark **Disaster Recovery (DR) Restore Timing**.
 
+![SQL Databases](Images/SQL_Database.png)
+
 ---
 
 ## Step 4 - Prepare AWS S3 Bucket
