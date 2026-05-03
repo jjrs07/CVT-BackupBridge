@@ -68,9 +68,18 @@ Provision a Windows Server virtual machine in Azure.
 Create a separate volume or drive dedicated exclusively for SQL backup files.
 
 ### Configuration
-*   **Drive Letter:** `H:\` (Example)
+
+To follow production best practices and ensure optimal performance, the lab environment utilizes a multi-disk architecture to separate I/O workloads:
+
+*   **Drive C:** Operating System (OS) and SQL Server Binaries.
+*   **Drive F:** SQL Data Files (`F:\Data`).
+*   **Drive G:** SQL Log Files (`G:\Logs`).
+*   **Drive T:** TempDB (Dedicated high-speed storage for temporary objects).
+*   **Drive H:** Dedicated Backup Storage (`H:\SQLBackups`).
+
+**Backup Storage Details:**
 *   **Path:** `H:\SQLBackups`
-*   **Recommended Size:** 500 GB to 1 TB (to accommodate LargeDB and enterprise-scale backup files)
+*   **Recommended Size:** 500 GB to 1 TB (to accommodate LargeDB and enterprise-scale backup files).
 
 > [!IMPORTANT]
 > In Azure, you must attach a **Data Disk** to the VM. Once attached, use `diskmgmt.msc` (Disk Management) to initialize the disk, create a simple volume, and format it as NTFS.
