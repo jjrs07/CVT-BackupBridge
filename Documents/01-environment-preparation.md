@@ -18,13 +18,14 @@ This document outlines the initial setup required to build the **CVT BackupBridg
 5. [Step 3 - Create Test Databases](#step-3---create-test-databases)
 6. [Step 4 - Prepare AWS S3 Bucket](#step-4---prepare-aws-s3-bucket)
 7. [Step 5 - Create IAM User for Script Access](#step-5---create-iam-user-for-script-access)
-8. [Validation Checklist](#validation-checklist)
+8. [Step 6 - Install AWS CLI on SQL Server](#step-6---install-aws-cli-on-sql-server)
+9. [Validation Checklist](#validation-checklist)
 
 ---
 
 ## Objective
-...
-**Next Step:** [02 - Local Backup Storage](02-local-backup-storage.md)
+
+Prepare the following components:
 *   SQL Server host environment
 *   Test databases (including scaling simulation)
 *   Dedicated local backup storage
@@ -186,6 +187,28 @@ This step ensures the automation scripts can communicate with AWS securely using
 
 ---
 
+## Step 6 - Install AWS CLI on SQL Server
+
+To enable the PowerShell automation scripts to communicate with AWS S3, the **AWS Command Line Interface (CLI) v2** must be installed on the SQL Server host.
+
+### Installation Steps
+1.  Download the **AWS CLI MSI installer** for Windows: [AWS CLI v2 Installer](https://awscli.amazonaws.com/AWSCLIV2.msi).
+2.  Run the installer and follow the on-screen prompts (standard installation).
+3.  **Verify Installation:** Open a PowerShell window and run:
+    ```powershell
+    aws --version
+    ```
+4.  **Configure Credentials:** Run the following command to input your Access Keys and Region:
+    ```powershell
+    aws configure
+    ```
+    *   **AWS Access Key ID:** (From Step 5)
+    *   **AWS Secret Access Key:** (From Step 5)
+    *   **Default region name:** (e.g., `ap-southeast-1`)
+    *   **Default output format:** `json`
+
+---
+
 ## Validation Checklist
 
 Before moving to the next phase, ensure:
@@ -195,6 +218,7 @@ Before moving to the next phase, ensure:
 - [ ] Dedicated `H:\SQLBackups` drive is formatted and ready.
 - [ ] AWS S3 bucket is created and private.
 - [ ] IAM User has been created with the correct policy applied.
+- [ ] AWS CLI v2 is installed and configured on the SQL Server.
 
 ---
 
