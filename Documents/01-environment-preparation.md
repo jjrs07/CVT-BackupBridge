@@ -139,6 +139,9 @@ Create an Amazon S3 bucket to serve as the offsite "vault."
 *   **Start/End:** Must begin and end with a letter or number.
 *   **Uniqueness:** Must be globally unique across all AWS accounts.
 
+![S3 Bucket](Images/s3-bucket.png)
+*Figure 3: AWS S3 bucket successfully created for offsite backup storage.*
+
 ---
 
 ## Step 5 - Create IAM User for Script Access
