@@ -12,7 +12,6 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 - [Solution Overview](#solution-overview)
 - [Architecture](#architecture)
 - [Lab Environment](#lab-environment)
-- [Databases Used](#databases-used)
 - [Backup Flow](#backup-flow)
 - [Tools Used](#tools-used)
 - [Results](#results)
@@ -84,9 +83,7 @@ The recovery workflow is modular and can be adapted to either staged file downlo
 
 * IAM User with scoped S3 permissions
 
----
-
-## Databases Used
+### Test Databases
 
 * AdventureWorks
 * LargeDB (custom large database for backup size testing)
