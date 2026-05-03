@@ -12,7 +12,7 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 - [Solution Overview](#solution-overview)
 - [Architecture](#architecture)
 - [Lab Environment](#lab-environment)
-- [BackupBridge Workflow](#backupbridge-workflow)
+- [Usage Guide](#usage-guide)
 - [Results](#results)
 - [Key Benefits for Companies](#key-benefits-for-companies)
 - [Lessons Learned](#lessons-learned)
@@ -75,6 +75,37 @@ To get started with CVT BackupBridge, follow the phased documentation in the `Do
 4.  **[S3 Synchronization](Documents/04-upload-to-s3.md):** Configure and schedule the PowerShell uploader.
 5.  **[Recovery Retrieval](Documents/05-recovery-download.md):** Use the multi-threaded downloader for DR events.
 6.  **[Restore & Validation](Documents/06-restore-validation.md):** Execute the T-SQL restore sequence and verify integrity.
+
+---
+
+## Results
+
+* ✅ Backup files uploaded successfully to AWS S3
+* ✅ Download from S3 completed successfully
+* ✅ Restore test completed successfully
+* ✅ Upload and download performance met lab expectations
+* ✅ On-premises to cloud backup model validated
+
+---
+
+## Key Benefits for Companies
+
+* Adds offsite backup without requiring full cloud migration
+* Lowers disaster recovery risk
+* Protects against local backup hardware failure
+* Supports ransomware resilience strategy
+* Uses existing SQL Server backup processes
+* Provides scalable storage growth through AWS S3
+
+---
+
+## Lessons Learned
+
+* Proper IAM permissions are critical
+* Naming standards simplify automation
+* Backup validation is as important as backup creation
+* Automation reduces human error
+* Hybrid cloud can modernize legacy environments
 
 ---
 
