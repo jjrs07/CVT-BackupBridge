@@ -125,10 +125,19 @@ To benchmark upload/download speeds and bridge performance, we simulate a larger
 
 Create an Amazon S3 bucket to serve as the offsite "vault."
 
+> [!NOTE]
+> Bucket creation is a straightforward process: enter the bucket name and leave the remaining settings as default.
+
 ### Setup Guide
 *   **Bucket Name:** e.g., `cvtech-sql-backups`
-*   **Access:** Block all public access.
+*   **Access:** Block all public access (Default).
 *   **Versioning:** Optional (useful for ransomware protection).
+
+### S3 Bucket Naming Requirements
+*   **Length:** 3 to 63 characters.
+*   **Characters:** Lowercase letters, numbers, dots (.), and hyphens (-) only.
+*   **Start/End:** Must begin and end with a letter or number.
+*   **Uniqueness:** Must be globally unique across all AWS accounts.
 
 ---
 
