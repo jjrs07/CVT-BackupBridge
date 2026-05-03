@@ -99,12 +99,26 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
             $folder = $relativeFolder -replace '\\', '/'
         }
 
-        # Execute AWS CLI upload process
-        $proc = Start-Process -FilePath "aws" `
-            -ArgumentList "s3 cp `"$file`" `"$bucket$folder/`" --quiet --storage-class STANDARD --region $region" `
-            -RedirectStandardOutput $outFile `
-            -RedirectStandardError "$outFile.err" `
-            -NoNewWindow -PassThru
+        # Execute AWS CLI upload process using splatting for cleaner syntax
+        $s3Args = @(
+            "s3", "cp", 
+            $file, 
+            "$bucket$folder/", 
+            "--quiet", 
+            "--storage-class", "STANDARD", 
+            "--region", $region
+        )
+
+        $startParams = @{
+            FilePath               = "aws"
+            ArgumentList           = $s3Args
+            RedirectStandardOutput = $outFile
+            RedirectStandardError  = "$outFile.err"
+            NoNewWindow            = $true
+            PassThru               = $true
+        }
+
+        $proc = Start-Process @startParams
 
         $activeUploads[$proc.Id] = @{
             Process    = $proc
