@@ -37,6 +37,9 @@ The "on-premises" environment is hosted on an Azure Virtual Machine to simulate 
 *   **OS:** Windows Server 2019
 *   **Database:** SQL Server 2019 Developer Edition
 
+> [!NOTE]
+> While this lab uses Azure, you can also simulate the "on-premises" environment using a local virtual machine (Oracle VirtualBox, VMware), a local workstation, or even a dedicated physical server. The BackupBridge logic remains identical regardless of the underlying hardware.
+
 ---
 
 ## Step 1 - Build Azure SQL Server VM
