@@ -25,13 +25,14 @@ The objective of this phase is to:
 
 ## Script Overview (S3_Uploader.ps1)
 
-The synchronization is powered by the `S3_Uploader.ps1` script located in the `Scripts/powershell/` directory.
+The synchronization is powered by the `S3_Uploader.ps1` script, a high-performance, multi-threaded automation engine designed to bridge on-premises backups to AWS S3.
 
-### Key Features
-*   **Recursive Uploads:** Monitors the `Full`, `Differential`, and `Logs` directories.
-*   **Validation:** Confirms the file exists locally before attempting an upload.
-*   **Error Handling:** Logs errors to the console (or a log file) if the transfer fails.
-*   **Retention Enforcement:** Purges local files only after a successful upload confirmation.
+### Key Technical Features
+*   **Multi-Threaded Concurrent Uploads:** Utilizes a background job queue to process multiple files simultaneously (Max: 4 concurrent streams by default). This ensures maximum saturation of available network bandwidth.
+*   **Intelligent Folder Mapping:** Automatically parses the local `H:\SQLBackups` hierarchy and recreates a matching `{ServerName}/{DatabaseName}/{Type}` prefix structure in the S3 bucket.
+*   **Fault Tolerance (Automatic Retries):** Implements a robust retry mechanism. If a transfer fails due to transient network issues, the script re-queues the file (up to 3 times) before logging a permanent failure.
+*   **Dual-Validation Success Logic:** Beyond checking process exit codes, the script performs a secondary `aws s3 ls` verification to confirm object existence in the cloud vault before marking a task as complete.
+*   **Performance Telemetry:** Calculates and logs real-time transfer speeds (Mbps) and precise durations for every file, providing data-driven insights into "Bridge" performance.
 
 ---
 
@@ -39,45 +40,45 @@ The synchronization is powered by the `S3_Uploader.ps1` script located in the `S
 
 Before running the synchronization script, ensure the following are configured on the Azure SQL VM:
 
-1.  **AWS Tools for PowerShell:** Installed and updated.
-2.  **IAM Credentials:** Access Key and Secret Key for the dedicated IAM user.
+1.  **AWS CLI v2:** Installed and configured with the `cvt-backup-service` credentials.
+2.  **IAM Credentials:** Programmatic access keys generated in Phase 01.
 3.  **Connectivity:** Outbound HTTPS (Port 443) access to AWS S3 endpoints.
 
 ---
 
 ## Implementation Logic
 
-The uploader follows a strict workflow to ensure data integrity:
+The uploader follows a rigorous 5-step workflow:
 
-1.  **Identity Check:** Authenticates with AWS using the scoped IAM user.
-2.  **Staging Scan:** Scans `H:\SQLBackups` for new files matching the naming convention.
-3.  **S3 Transfer:** Executes the `Write-S3Object` command to push files to the `cvt-backupbridge-backups` bucket.
-4.  **Verification:** Checks the S3 bucket to confirm the object size matches the local file.
-5.  **Local Cleanup:** Deletes the local backup file to free up staging space.
+1.  **Object Discovery:** Recursively scans `H:\SQLBackups` for `.bak` and `.trn` files.
+2.  **Queue Initialization:** Builds a processing queue with file metadata and size calculations.
+3.  **Parallel Execution:** Spawns `aws s3 cp` processes up to the defined concurrency limit.
+4.  **Verification:** Validates upload integrity using process exit codes and S3 object listing.
+5.  **Logging:** Records detailed telemetry to a central `.log` file for audit and troubleshooting.
 
 ---
 
 ## Automation and Scheduling
 
-To achieve a true "Bridge" experience, the uploader must run on a schedule.
+To achieve a true "Bridge" experience, the uploader should run on a schedule.
 
-### Option 1: Windows Task Scheduler
+### Option 1: SQL Server Agent (Recommended)
+*   **Type:** PowerShell Step.
+*   **Frequency:** Scheduled to run immediately after the SQL Backup jobs complete.
+*   **Benefit:** Centralized management within SSMS and integration with database alerts.
+
+### Option 2: Windows Task Scheduler
 *   **Frequency:** Every 15-30 minutes.
 *   **Trigger:** Repeat task indefinitely.
 *   **Action:** `powershell.exe -ExecutionPolicy Bypass -File "C:\Path\To\Scripts\S3_Uploader.ps1"`
 
-### Option 2: SQL Server Agent
-*   **Type:** PowerShell Step.
-*   **Frequency:** Scheduled to run immediately after the SQL Backup jobs complete.
-*   **Benefit:** Centralized management within SQL Server Management Studio.
-
 > [!WARNING]
-> Ensure the service account running the scheduled task has "Modify" permissions on the `H:\SQLBackups` folder and access to the AWS credential store.
+> Ensure the service account running the scheduled task has **Modify** permissions on the `H:\SQLBackups` folder and access to the AWS credential store.
 
 ---
 
-## Next Step
+## Output of This Phase
 
-With backups safely in the cloud, the project can address recovery scenarios:
+Your on-premises SQL Server backups are now automatically and securely replicated to the AWS cloud.
 
-[05 - Recovery Download](05-recovery-download.md)
+**Next Step:** [05 - Recovery Download](05-recovery-download.md)
