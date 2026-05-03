@@ -14,6 +14,7 @@ VM Build/
 *.tmp
 s3_logs/
 Backup/
+Documents/Logs/
 
 # Word Docs / Manuals
 *.docx
