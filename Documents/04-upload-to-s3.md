@@ -50,7 +50,7 @@ Before running the synchronization script, ensure the following are configured o
 The uploader follows a strict workflow to ensure data integrity:
 
 1.  **Identity Check:** Authenticates with AWS using the scoped IAM user.
-2.  **Staging Scan:** Scans `E:\SQLBackups` for new files matching the naming convention.
+2.  **Staging Scan:** Scans `H:\SQLBackups` for new files matching the naming convention.
 3.  **S3 Transfer:** Executes the `Write-S3Object` command to push files to the `cvt-backupbridge-backups` bucket.
 4.  **Verification:** Checks the S3 bucket to confirm the object size matches the local file.
 5.  **Local Cleanup:** Deletes the local backup file to free up staging space.
@@ -72,7 +72,7 @@ To achieve a true "Bridge" experience, the uploader must run on a schedule.
 *   **Benefit:** Centralized management within SQL Server Management Studio.
 
 > [!WARNING]
-> Ensure the service account running the scheduled task has "Modify" permissions on the `E:\SQLBackups` folder and access to the AWS credential store.
+> Ensure the service account running the scheduled task has "Modify" permissions on the `H:\SQLBackups` folder and access to the AWS credential store.
 
 ---
 

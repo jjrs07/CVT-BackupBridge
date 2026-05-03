@@ -66,8 +66,8 @@ Provision a Windows Server virtual machine in Azure.
 Create a separate volume or drive dedicated exclusively for SQL backup files.
 
 ### Configuration
-*   **Drive Letter:** `E:\` (Example)
-*   **Path:** `E:\SQLBackups`
+*   **Drive Letter:** `H:\` (Example)
+*   **Path:** `H:\SQLBackups`
 
 > [!IMPORTANT]
 > In Azure, you must attach a **Data Disk** to the VM. Once attached, use `diskmgmt.msc` (Disk Management) to initialize the disk, create a simple volume, and format it as NTFS.
@@ -129,7 +129,7 @@ Before moving to the next phase, ensure:
 - [ ] Azure VM is accessible via RDP.
 - [ ] SQL Server instance is responsive.
 - [ ] Test databases (`AdventureWorks`/`LargeDB`) are online.
-- [ ] Dedicated `E:\SQLBackups` drive is formatted and ready.
+- [ ] Dedicated `H:\SQLBackups` drive is formatted and ready.
 - [ ] AWS S3 bucket is created and private.
 - [ ] IAM User has been created with the correct policy applied.
 

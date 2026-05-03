@@ -29,7 +29,7 @@ A standardized directory structure ensures that PowerShell automation scripts (U
 
 ### Recommended Layout
 ```text
-E:\SQLBackups\
+H:\SQLBackups\
 ├───Full\           (Weekly/Daily full backups)
 ├───Differential\   (Daily/Intra-day diff backups)
 └───Logs\           (Transaction log backups)
@@ -64,7 +64,7 @@ Backup files contain sensitive data and must be protected.
 *   **Everyone/Users:** No Access.
 
 > [!IMPORTANT]
-> Ensure that the SQL Server service account has explicit write permissions to the `E:\SQLBackups` directory. Without this, backup jobs will fail with "Access Denied."
+> Ensure that the SQL Server service account has explicit write permissions to the `H:\SQLBackups` directory. Without this, backup jobs will fail with "Access Denied."
 
 ---
 
@@ -72,7 +72,7 @@ Backup files contain sensitive data and must be protected.
 
 Local storage is a transient "staging area" rather than long-term storage.
 
-*   **Capacity Monitoring:** SQL Server Agent alerts should be configured for low disk space on the `E:` drive.
+*   **Capacity Monitoring:** SQL Server Agent alerts should be configured for low disk space on the `H:` drive.
 *   **Cleanup Trigger:** The `S3_Uploader.ps1` script is responsible for verifying a successful cloud upload before purging the local copy.
 
 ---

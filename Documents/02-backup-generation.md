@@ -55,12 +55,12 @@ CVT BackupBridge utilizes a standard three-tier backup approach:
 
 ## T-SQL Implementation
 
-All backups are directed to the dedicated storage initialized in Phase 01: `E:\SQLBackups`.
+All backups are directed to the dedicated storage initialized in Phase 01: `H:\SQLBackups`.
 
 ### 1. Full Backup
 ```sql
 BACKUP DATABASE [AdventureWorks]
-TO DISK = 'E:\SQLBackups\AdventureWorks_Full.bak'
+TO DISK = 'H:\SQLBackups\AdventureWorks_Full.bak'
 WITH FORMAT, MEDIANAME = 'SQLServerBackups', NAME = 'Full Backup of AdventureWorks', 
 CHECKSUM, STATS = 10;
 GO
@@ -69,7 +69,7 @@ GO
 ### 2. Differential Backup
 ```sql
 BACKUP DATABASE [AdventureWorks]
-TO DISK = 'E:\SQLBackups\AdventureWorks_Diff.bak'
+TO DISK = 'H:\SQLBackups\AdventureWorks_Diff.bak'
 WITH DIFFERENTIAL, FORMAT, NAME = 'Diff Backup of AdventureWorks', 
 CHECKSUM, STATS = 10;
 GO
@@ -78,7 +78,7 @@ GO
 ### 3. Transaction Log Backup
 ```sql
 BACKUP LOG [AdventureWorks]
-TO DISK = 'E:\SQLBackups\AdventureWorks_Log.trn'
+TO DISK = 'H:\SQLBackups\AdventureWorks_Log.trn'
 WITH FORMAT, NAME = 'Log Backup of AdventureWorks', 
 CHECKSUM, STATS = 10;
 GO
@@ -88,7 +88,7 @@ GO
 
 ## Local Retention Policy
 
-To prevent the local `E:\SQLBackups` drive from reaching capacity, a retention policy is required.
+To prevent the local `H:\SQLBackups` drive from reaching capacity, a retention policy is required.
 
 *   **Policy:** Maintain 24-48 hours of local backups.
 *   **Cleanup:** Older files are deleted locally after successful confirmation of the S3 upload.

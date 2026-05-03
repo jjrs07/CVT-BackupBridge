@@ -33,7 +33,7 @@ Before initiating a SQL restore, we use the `validation_script.ps1` (located in 
 *   **Completeness:** Identifies any missing Log files in the sequence.
 
 ```powershell
-.\validation_script.ps1 -Source "E:\SQLBackups" -Target "H:\SQLRestore"
+.\validation_script.ps1 -Source "H:\SQLBackups" -Target "H:\SQLRestore"
 ```
 
 ---
