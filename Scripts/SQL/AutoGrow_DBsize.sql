@@ -1,32 +1,33 @@
 /* ===================================================================
-   AdventureWorks Auto Grow Script (Production-Ready Lab Version)
-   Purpose:
-      Grow database data file for backup testing:
-      5 GB / 10 GB / 20 GB / custom size
+   SQL Server Database Growth Script
+   Description:
+      Grows a database data file for backup and performance testing by 
+      inserting synthetic data into a dedicated table.
 
-   Safe Design:
-      - Does NOT modify AdventureWorks existing tables
-      - Creates dbo.BackupGrowthData only
-      - Inserts synthetic data in batches
-      - Shows progress
-      - Stops when target reached
+   Features:
+      - Targets specific sizes (e.g., 5GB, 10GB, 20GB).
+      - Inserts synthetic data in batches to avoid log bloat.
+      - Displays progress in the Messages window.
+      - Stops automatically when the target size is reached.
 
-   Recommended Use:
-      POC / Lab / Backup Upload Testing / Restore Testing
+   Usage:
+      Ideal for POCs, Lab environments, and testing Backup/Restore 
+      performance with varied database sizes.
 =================================================================== */
 
-USE LargeDB;
+-- Replace <YourDatabaseName> with the actual database name
+USE [<YourDatabaseName>];
 SET NOCOUNT ON;
 
 ------------------------------------------------------------
--- CONFIG
+-- CONFIGURATION
 ------------------------------------------------------------
-DECLARE @TargetGB INT = 5;       -- change to 10 / 20
-DECLARE @BatchSize INT = 1000;
+DECLARE @TargetGB INT = 5;       -- Set target size: 5, 10, 20, etc.
+DECLARE @BatchSize INT = 1000;   -- Rows per batch
 DECLARE @TargetMB BIGINT = @TargetGB * 1024;
 
 ------------------------------------------------------------
--- CREATE TABLE
+-- INITIALIZATION
 ------------------------------------------------------------
 IF OBJECT_ID('dbo.BackupGrowthData','U') IS NULL
 BEGIN
@@ -39,15 +40,15 @@ BEGIN
         CreatedDate DATETIME DEFAULT GETDATE()
     );
 
-    PRINT 'Created dbo.BackupGrowthData';
+    PRINT 'Created staging table: dbo.BackupGrowthData';
 END
 ELSE
 BEGIN
-    PRINT 'dbo.BackupGrowthData already exists';
+    PRINT 'Staging table dbo.BackupGrowthData already exists';
 END;
 
 ------------------------------------------------------------
--- LOOP
+-- DATA INSERTION LOOP
 ------------------------------------------------------------
 DECLARE @CurrentMB BIGINT;
 DECLARE @Percent DECIMAL(10,2);
@@ -56,14 +57,17 @@ DECLARE @Rows BIGINT = 0;
 WHILE 1 = 1
 BEGIN
 
+    -- Calculate current size of data files (ROWS) in MB
     SELECT @CurrentMB =
         SUM(size) * 8 / 1024
     FROM sys.database_files
     WHERE type_desc = 'ROWS';
 
+    -- Exit loop if target size is reached
     IF @CurrentMB >= @TargetMB
         BREAK;
 
+    -- Insert batch of synthetic data
     ;WITH N AS
     (
         SELECT TOP (1000) 1 AS X
@@ -79,20 +83,21 @@ BEGIN
 
     SET @Rows += @BatchSize;
 
+    -- Calculate and print progress
     SET @Percent =
         CAST(@CurrentMB * 100.0 / @TargetMB AS DECIMAL(10,2));
 
     PRINT CONCAT(
-        'Size: ', @CurrentMB, ' MB / ',
-        @TargetMB, ' MB (',
-        @Percent, '%) Rows: ',
-        @Rows
+        'Current Size: ', @CurrentMB, ' MB / ',
+        'Target: ', @TargetMB, ' MB (',
+        @Percent, '%) | Rows Inserted: ', @Rows
     );
 
 END;
 
 PRINT '================================';
-PRINT CONCAT('Reached Target: ', @TargetGB, ' GB');
+PRINT CONCAT('SUCCESS: Reached Target Size of ', @TargetGB, ' GB');
 PRINT '================================';
 
+-- Display final space usage
 EXEC sp_spaceused;
