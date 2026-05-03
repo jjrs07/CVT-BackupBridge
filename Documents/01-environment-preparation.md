@@ -64,6 +64,7 @@ Provision a Windows Server virtual machine in Azure.
 ## Step 2 - Create Dedicated Backup Storage
 
 ![Disk Placement](Images/disk_placement.png)
+*Figure 1: Dedicated multi-disk configuration in Azure for SQL Server I/O separation.*
 
 Create a separate volume or drive dedicated exclusively for SQL backup files.
 
@@ -110,6 +111,7 @@ To benchmark upload/download speeds and bridge performance, we simulate a larger
     *   Benchmark **Disaster Recovery (DR) Restore Timing**.
 
 ![SQL Databases](Images/SQL_Database.png)
+*Figure 2: Test databases (AdventureWorks and LargeDB) successfully initialized in SSMS.*
 
 ---
 
