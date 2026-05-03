@@ -2,6 +2,7 @@
 # Usage: Edit the $files array with your file paths then run the script
 
 $bucket  = "<Input your S3 bucket name here, e.g. s3://my-backups>"
+$region  = "<Input your AWS region here, e.g. us-east-1>"
 $maxJobs = 4
 $logFile = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
 
