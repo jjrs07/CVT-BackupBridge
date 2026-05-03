@@ -63,7 +63,7 @@ The solution enables:
 ## Architecture
 
 ![Architecture](Documents/Images/Architecture.png)
-
+The recovery workflow is modular and can be adapted to either staged file download or direct restore automation based on company requirements.
 ---
 
 ## Lab Environment
