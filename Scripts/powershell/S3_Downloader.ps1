@@ -2,10 +2,11 @@
 # Usage: Edit the $downloadList array with your S3 files then run the script
 # Multipart downloads are handled automatically by AWS CLI for large files
 
-$bucket        = "s3://cvtech-sql-backups/"
+$bucket        = "<Input your S3 bucket name here, e.g. s3://my-backups>"
+$region        = "<Input your AWS region here, e.g. us-east-1>"
 $maxJobs       = 4
-$localBackupDir = "H:\SQLRestore\"  # Local restore directory
-$logFile       = "C:\s3_logs\s3-download-log.txt"
+$localBackupDir = "<Input your backup or restore root path here, e.g. H:\SQLRestore>'"  # Local restore directory
+$logFile       = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
 
 # ============================================================
 # DISCOVER S3 FILES TO DOWNLOAD
