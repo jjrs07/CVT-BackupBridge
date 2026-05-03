@@ -171,6 +171,12 @@ This step ensures the automation scripts can communicate with AWS securely using
 4.  Select **Command Line Interface (CLI)** as the use case.
 5.  **Retrieve Keys:** Copy the **Access Key ID** and **Secret Access Key**.
 
+> [!NOTE]
+> **Data Sensitivity & Security:**
+> To maintain the highest security standards and prevent the exposure of sensitive Account IDs or ARNs, screenshots of the IAM user creation process are intentionally omitted from this guide. 
+> 
+> **Important Reminder:** You should follow the same practice. Never share screenshots of your IAM console, Access Keys, or Account IDs in public forums, repositories, or unsecured documentation.
+
 > [!IMPORTANT]
 > **Programmatic Access vs. Console Access:**
 > By default, this user has no password and cannot log in to the AWS Management Console website. It can only interact with AWS via the CLI or PowerShell using the Access Keys. This significantly reduces the attack surface.
