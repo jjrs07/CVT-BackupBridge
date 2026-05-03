@@ -73,6 +73,10 @@ The uploader follows a rigorous workflow for secure cloud synchronization. It is
     Set-Location "C:\Scripts\"
     .\S3_Uploader.ps1
     ```
+
+![S3 Uploader Running](Images/S3_Uploader_running.png)
+*Figure 1: S3 Multi-Threaded Uploader in action, showing parallel transfers and real-time Mbps telemetry.*
+
 6.  **Logging:** Records detailed telemetry to a central `.log` file for audit and troubleshooting.
 
 ---
