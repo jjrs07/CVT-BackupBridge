@@ -90,6 +90,10 @@ FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\SQLServer_AdventureWo
 WITH RECOVERY;
 ```
 
+![Restore Validation](Images/Restore_validation.png)
+
+*Figure 1: Successful T-SQL restoration sequence and database synchronization.*
+
 ---
 
 ## Phase 3: Database-Level Validation
