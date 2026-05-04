@@ -77,6 +77,9 @@ The uploader follows a thorough workflow for secure cloud synchronization. It is
 ![S3 Uploader Running](Images/S3_Uploader_running.png)
 *Figure 1: S3 Multi-Threaded Uploader in action, showing parallel transfers and real-time Mbps telemetry.*
 
+![S3 Populated Bucket](Images/S3-bucket-populated.png)
+*Figure 2: The S3 bucket "vault" showing the successfully synchronized backup hierarchy.*
+
 6.  **Logging:** Records detailed telemetry to a central `.log` file for audit and troubleshooting.
 
 ---
