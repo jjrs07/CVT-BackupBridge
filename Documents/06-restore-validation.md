@@ -27,6 +27,9 @@ The objective of this phase is to:
 
 Before initiating a SQL restore, we use the `validation_script.ps1` (located in `Scripts/powershell/`) to compare the source (local) and target (restore) directories.
 
+> [!NOTE]
+> Although this validation was performed at the end of [05 - Recovery Download](05-recovery-download.md), it is a best practice to run it again here. This ensures that the staging area is still intact and that no files were accidentally moved or corrupted before the restore begins.
+
 ### Validation Logic
 *   **Path Mapping:** Compares relative paths in both directories.
 *   **Size Matching:** Ensures the byte-count matches exactly between the original and the downloaded copy.
