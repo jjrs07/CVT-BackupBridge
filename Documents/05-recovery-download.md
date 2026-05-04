@@ -54,13 +54,11 @@ The downloader executes the following steps:
 3.  **Parallel Execution:** Spawns background processes (using `Start-Process`) to execute `aws s3 cp` commands concurrently.
 4.  **Monitoring:** Continuously polls active jobs and reaps completed ones, logging speed and progress.
 5.  **Final Verification:** Confirms that all files are present and have non-zero lengths before exiting.
-
-### Manual Execution (Test Run)
-To verify the recovery bridge, open PowerShell as Administrator and execute the script:
-```powershell
-Set-Location "C:\Scripts\"
-.\S3_Downloader.ps1
-```
+6.  **Manual Execution (Test Run):** To verify the recovery bridge, open PowerShell as Administrator and execute the script:
+    ```powershell
+    Set-Location "C:\Scripts\"
+    .\S3_Downloader.ps1
+    ```
 
 ![S3 Downloader Running](Images/S3_Downloader_running.png)
 
