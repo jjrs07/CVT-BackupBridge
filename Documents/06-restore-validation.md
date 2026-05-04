@@ -67,10 +67,10 @@ The `NORECOVERY` option keeps the database in a "Restoring" state, allowing addi
 -- Example for Scenario A (Restore as New)
 USE [master];
 RESTORE DATABASE [AdventureWorks_Restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\FULL\SQLServer_AdventureWorks_Full_YYYYMMDD_HHMM.bak'
+FROM DISK = N'H:\SQLRestore\{ServerName}\{DatabaseName}\FULL\SQLServer_AdventureWorks_Full_YYYYMMDD_HHMM.bak'
 WITH FILE = 1,
-     MOVE 'AdventureWorks2019' TO 'F:\Data\AdventureWorks_Restore.mdf',
-     MOVE 'AdventureWorks2019_log' TO 'G:\Logs\AdventureWorks_Restore_log.ldf',
+     MOVE N'AdventureWorks2019' TO N'F:\Data\AdventureWorks_Restore.mdf',
+     MOVE N'AdventureWorks2019_log' TO N'G:\Logs\AdventureWorks_Restore_log.ldf',
      NORECOVERY, REPLACE, STATS = 5;
 GO
 ```
@@ -78,7 +78,7 @@ GO
 #### 2. Restore the Differential Backup (NORECOVERY)
 ```sql
 RESTORE DATABASE [AdventureWorks_Restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\DIFF\SQLServer_AdventureWorks_Diff_YYYYMMDD_HHMM.bak'
+FROM DISK = N'H:\SQLRestore\{ServerName}\{DatabaseName}\DIFF\SQLServer_AdventureWorks_Diff_YYYYMMDD_HHMM.bak'
 WITH NORECOVERY;
 ```
 
@@ -86,7 +86,7 @@ WITH NORECOVERY;
 Apply the log sequence. The final log restore uses the `RECOVERY` option to bring the database online.
 ```sql
 RESTORE LOG [AdventureWorks_Restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\SQLServer_AdventureWorks_Log_YYYYMMDD_HHMM.trn'
+FROM DISK = N'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\SQLServer_AdventureWorks_Log_YYYYMMDD_HHMM.trn'
 WITH RECOVERY;
 ```
 
