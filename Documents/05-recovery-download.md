@@ -55,6 +55,20 @@ The downloader executes the following steps:
 4.  **Monitoring:** Continuously polls active jobs and reaps completed ones, logging speed and progress.
 5.  **Final Verification:** Confirms that all files are present and have non-zero lengths before exiting.
 
+### Manual Execution (Test Run)
+To verify the recovery bridge, open PowerShell as Administrator and execute the script:
+```powershell
+Set-Location "C:\Scripts\"
+.\S3_Downloader.ps1
+```
+
+![S3 Downloader Running](Images/S3_Downloader_running.png)
+
+*Figure 1: S3 Multi-Threaded Downloader retrieving backup sets with preserved folder hierarchy.*
+
+### Folder Placement and Pathing
+The script downloads backup files to the path defined in the `$localBackupDir` variable. To maintain recovery consistency, it automatically recreates the source folder structure (e.g., `{ServerName}/{DatabaseName}/{BackupType}`) at the destination, ensuring the recovery environment mirrors the original production layout.
+
 ---
 
 ## Target Staging Area
