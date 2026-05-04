@@ -65,25 +65,28 @@ The `NORECOVERY` option keeps the database in a "Restoring" state, allowing addi
 
 ```sql
 -- Example for Scenario A (Restore as New)
-RESTORE DATABASE [AdventureWorks_restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\FULL\AdventureWorks_Full_20260503_220000.bak'
-WITH MOVE 'AdventureWorks' TO 'F:\Data\AdventureWorks_restore.mdf',
-     MOVE 'AdventureWorks_log' TO 'G:\Logs\AdventureWorks_restore_log.ldf',
-     NORECOVERY, REPLACE;
+USE [master];
+RESTORE DATABASE [AdventureWorks_Restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\FULL\SQLServer_AdventureWorks_Full_YYYYMMDD_HHMM.bak'
+WITH FILE = 1,
+     MOVE 'AdventureWorks2019' TO 'F:\Data\AdventureWorks_Restore.mdf',
+     MOVE 'AdventureWorks2019_log' TO 'G:\Logs\AdventureWorks_Restore_log.ldf',
+     NORECOVERY, REPLACE, STATS = 5;
+GO
 ```
 
 #### 2. Restore the Differential Backup (NORECOVERY)
 ```sql
-RESTORE DATABASE [AdventureWorks_restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\DIFF\AdventureWorks_Diff_20260504_100000.bak'
+RESTORE DATABASE [AdventureWorks_Restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\DIFF\SQLServer_AdventureWorks_Diff_YYYYMMDD_HHMM.bak'
 WITH NORECOVERY;
 ```
 
 #### 3. Restore Transaction Logs (RECOVERY)
 Apply the log sequence. The final log restore uses the `RECOVERY` option to bring the database online.
 ```sql
-RESTORE LOG [AdventureWorks_restore]
-FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\AdventureWorks_Log_20260504_101500.trn'
+RESTORE LOG [AdventureWorks_Restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\SQLServer_AdventureWorks_Log_YYYYMMDD_HHMM.trn'
 WITH RECOVERY;
 ```
 
@@ -95,7 +98,7 @@ Once the database is online, we must ensure it is free of corruption.
 
 ### 1. Physical Integrity Check
 ```sql
-DBCC CHECKDB ('AdventureWorks') WITH NO_INFOMSGS, ALL_ERRORMSGS;
+DBCC CHECKDB ('AdventureWorks_Restore') WITH NO_INFOMSGS, ALL_ERRORMSGS;
 ```
 
 ### 2. Logical Validation
