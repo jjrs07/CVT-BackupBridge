@@ -1,0 +1,8 @@
+{
+    "S3Bucket": "s3://your-bucket-name",
+    "AWSRegion": "ap-southeast-1",
+    "MaxSimultaneousJobs": 4,
+    "BackupRootPath": "H:\\SQLBackups",
+    "RestoreRootPath": "H:\\SQLRestore",
+    "LogDirectory": "C:\\Logs"
+}

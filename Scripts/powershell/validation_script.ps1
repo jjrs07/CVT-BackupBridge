@@ -3,10 +3,19 @@
 # that all files were transferred correctly and that their sizes match.
 
 # ============================================================
-# CONFIGURATION
+# CONFIGURATION LOADING
 # ============================================================
-$Source = "<Input your local backup source path here, e.g. H:\SQLBackups>"
-$Target = "<Input your local restore target path here, e.g. H:\SQLRestore>"
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configPath = Join-Path $scriptPath "..\settings.json"
+
+if (Test-Path $configPath) {
+    $config = Get-Content $configPath | ConvertFrom-Json
+    $Source = $config.BackupRootPath
+    $Target = $config.RestoreRootPath
+} else {
+    Write-Error "Configuration file not found at $configPath. Please copy settings.json.template to settings.json and update it."
+    exit 1
+}
 
 # ============================================================
 # UTILITY FUNCTIONS

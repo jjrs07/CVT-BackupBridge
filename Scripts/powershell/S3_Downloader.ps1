@@ -3,13 +3,22 @@
 # Supports multi-threaded processing, automatic directory creation, and retries.
 
 # ============================================================
-# CONFIGURATION
+# CONFIGURATION LOADING
 # ============================================================
-$bucket         = "<Input your S3 bucket name here, e.g. s3://my-backups>"
-$region         = "<Input your AWS region here, e.g. us-east-1>"
-$maxJobs        = 4
-$localBackupDir = "<Input your local restore root path here, e.g. H:\SQLRestore>"
-$logFile        = "<Input your log file path here, e.g. C:\Logs\S3Download.log>"
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configPath = Join-Path $scriptPath "..\settings.json"
+
+if (Test-Path $configPath) {
+    $config = Get-Content $configPath | ConvertFrom-Json
+    $bucket         = $config.S3Bucket
+    $region         = $config.AWSRegion
+    $maxJobs        = $config.MaxSimultaneousJobs
+    $localBackupDir = $config.RestoreRootPath
+    $logFile        = Join-Path $config.LogDirectory "S3Download.log"
+} else {
+    Write-Error "Configuration file not found at $configPath. Please copy settings.json.template to settings.json and update it."
+    exit 1
+}
 
 # ============================================================
 # UTILITY FUNCTIONS

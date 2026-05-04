@@ -1,5 +1,6 @@
 # AWS/Security
 *accessKeys.csv
+settings.json
 *.env
 *.credentials
 

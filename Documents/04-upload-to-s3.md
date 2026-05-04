@@ -49,13 +49,16 @@ Before running the synchronization script, ensure the following are configured o
 
 ## Script Installation
 
-1.  **Download:** Download the `S3_Uploader.ps1` script from the `Scripts/powershell/` directory of this repository.
-2.  **Placement:** Save the script to a dedicated automation folder on the SQL Server (e.g., `C:\Scripts\`).
-3.  **Configuration:** Open the script in an editor and update the following variables:
-    *   `$bucket`: Set to your actual S3 bucket (e.g., `s3://cvtech-sql-backups`).
-    *   `$region`: Set to your AWS region (e.g., `ap-southeast-1`).
-    *   `$backupRoot`: Set to your local backup drive (e.g., `H:\SQLBackups`).
-    *   `$logFile`: Set to your desired log path (e.g., `C:\Logs\S3_Uploader.log`).
+1.  **Download:** Download the `S3_Uploader.ps1` script from the `Scripts/powershell/` directory and the `settings.json.template` from the `Scripts/` directory.
+2.  **Placement:** Save the script and template to your automation folder (e.g., `C:\Scripts\`).
+3.  **Configuration:** 
+    *   Copy `settings.json.template` to the `Scripts/` folder as `settings.json`.
+    *   Update the `settings.json` file with your environment details:
+        *   `S3Bucket`: Your S3 bucket name (e.g., `s3://cvtech-sql-backups`).
+        *   `AWSRegion`: Your AWS region (e.g., `ap-southeast-1`).
+        *   `MaxSimultaneousJobs`: Concurrency limit (default is 4).
+        *   `BackupRootPath`: Path to your local backup drive (e.g., `H:\\SQLBackups`).
+        *   `LogDirectory`: Folder where log files will be stored (e.g., `C:\\Logs`).
 
 ---
 

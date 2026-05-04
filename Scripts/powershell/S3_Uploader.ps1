@@ -3,13 +3,22 @@
 # Supports multi-threaded processing (max simultaneous uploads) and automatic retries.
 
 # ============================================================
-# CONFIGURATION
+# CONFIGURATION LOADING
 # ============================================================
-$bucket     = "<Input your S3 bucket name here, e.g. s3://my-backups>"
-$region     = "<Input your AWS region here, e.g. us-east-1>"
-$maxJobs    = 4
-$logFile    = "<Input your log file path here, e.g. C:\Logs\S3Upload.log>"
-$backupRoot = "<Input your backup root path here, e.g. H:\SQLBackups>"
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+$configPath = Join-Path $scriptPath "..\settings.json"
+
+if (Test-Path $configPath) {
+    $config = Get-Content $configPath | ConvertFrom-Json
+    $bucket     = $config.S3Bucket
+    $region     = $config.AWSRegion
+    $maxJobs    = $config.MaxSimultaneousJobs
+    $backupRoot = $config.BackupRootPath
+    $logFile    = Join-Path $config.LogDirectory "S3Upload.log"
+} else {
+    Write-Error "Configuration file not found at $configPath. Please copy settings.json.template to settings.json and update it."
+    exit 1
+}
 
 # ============================================================
 # UTILITY FUNCTIONS

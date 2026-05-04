@@ -76,9 +76,9 @@ The downloader executes the following steps:
 3.  **Parallel Execution:** Spawns background processes (using `Start-Process`) to execute `aws s3 cp` commands concurrently.
 4.  **Monitoring:** Continuously polls active jobs and reaps completed ones, logging speed and progress.
 5.  **Final Verification:** Confirms that all files are present and have non-zero lengths before exiting.
-6.  **Manual Execution (Test Run):** To verify the recovery bridge, open PowerShell as Administrator and execute the script:
+6.  **Manual Execution (Test Run):** Ensure your `settings.json` is configured with the correct `RestoreRootPath`. Open PowerShell as Administrator and execute the script:
     ```powershell
-    Set-Location "C:\Scripts\"
+    Set-Location "C:\Scripts\powershell\"
     .\S3_Downloader.ps1
     ```
 
@@ -87,11 +87,11 @@ The downloader executes the following steps:
 *Figure 1: S3 Multi-Threaded Downloader retrieving backup sets with preserved folder hierarchy.*
 
 ### Folder Placement and Pathing
-The script downloads backup files to the path defined in the `$localBackupDir` variable. To maintain recovery consistency, it automatically recreates the source folder structure (e.g., `{ServerName}/{DatabaseName}/{BackupType}`) at the destination, ensuring the recovery environment mirrors the original production layout.
+The script downloads backup files to the path defined in the `RestoreRootPath` variable within `settings.json`. To maintain recovery consistency, it automatically recreates the source folder structure (e.g., `{ServerName}/{DatabaseName}/{BackupType}`) at the destination, ensuring the recovery environment mirrors the original production layout.
 
 7.  **Integrity Validation:** Once the download is complete, verify that the restored folder structure and file sizes match the original production source.
     ```powershell
-    Set-Location "C:\Scripts\"
+    Set-Location "C:\Scripts\powershell\"
     .\validation_script.ps1
     ```
 
@@ -100,7 +100,7 @@ The script downloads backup files to the path defined in the `$localBackupDir` v
 *Figure 2: Validation script output confirming a 100% match between the source backup and the restored target.*
 
 ### Validation Script Logic
-The `validation_script.ps1` performs a recursive comparison between the source (`$Source`) and the target (`$Target`) directories. It calculates relative paths for every file and compares them alongside their exact file sizes (in bytes). This ensures that no files were corrupted, truncated, or missed during the multi-threaded S3 transfer process.
+The `validation_script.ps1` performs a recursive comparison between the source (`BackupRootPath`) and the target (`RestoreRootPath`) directories defined in `settings.json`. It calculates relative paths for every file and compares them alongside their exact file sizes (in bytes). This ensures that no files were corrupted, truncated, or missed during the multi-threaded S3 transfer process.
 
 ---
 

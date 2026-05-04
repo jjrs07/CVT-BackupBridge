@@ -96,7 +96,7 @@ To get started with CVT BackupBridge, follow the phased documentation in the `Do
 
 ## Lessons Learned
 
-*   **Security as a Foundation:** Scoped IAM permissions aren't just a technical requirement; they are the primary defense against lateral movement during a security event.
+*   **Security as a Foundation:** Scoped IAM permissions aren't just a technical requirement; they are the primary defense against lateral movement. Externalizing configuration via `settings.json` (and ignoring it in Git) further protects environment-specific metadata.
 *   **Standards-Driven Automation:** Predictable naming and directory structures are the 'glue' that allows simple automation to handle enterprise-scale data volumes with zero manual touch.
 *   **Validation is the True Product:** A backup is merely a liability until it is validated. Automated restoration testing is the only way to transform 'hope' into a guaranteed Business Continuity plan.
 
