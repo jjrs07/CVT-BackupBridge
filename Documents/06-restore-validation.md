@@ -43,30 +43,47 @@ Before initiating a SQL restore, we use the `validation_script.ps1` (located in 
 
 ## Phase 2: SQL Server Restoration
 
-SQL Server requires a specific sequence of operations to restore a database to its most recent state.
+In a production environment, disaster recovery (DR) tests are typically performed on a dedicated recovery server. For the purposes of this **Proof of Concept (POC)**, we simulate the restoration on the same server using one of the following two scenarios:
 
-### 1. Restore the Full Backup (NORECOVERY)
+### POC Scenario A: Restore as a New Database (Side-by-Side)
+This is the safest method for validation as it does not impact the original database. We restore the backup to a new name (e.g., `AdventureWorks_restore`) and move the physical files to unique paths.
+
+### POC Scenario B: Overwrite the Existing Database
+In a true DR event, you would likely delete or drop the corrupted database and recreate it from the S3 "vault."
+
+> [!CAUTION]
+> If using **Scenario B**, ensure you have a confirmed backup in S3 before dropping the local database.
+
+---
+
+### T-SQL Restoration Sequence
+
+SQL Server requires a specific sequence of operations to restore a database to its most recent state. 
+
+#### 1. Restore the Full Backup (NORECOVERY)
 The `NORECOVERY` option keeps the database in a "Restoring" state, allowing additional backups to be applied.
+
 ```sql
-RESTORE DATABASE [AdventureWorks]
-FROM DISK = 'H:\SQLRestore\Full\AdventureWorks_Full_20260503_220000.bak'
-WITH MOVE 'AdventureWorks' TO 'F:\Data\AdventureWorks.mdf',
-     MOVE 'AdventureWorks_log' TO 'G:\Logs\AdventureWorks_log.ldf',
+-- Example for Scenario A (Restore as New)
+RESTORE DATABASE [AdventureWorks_restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\FULL\AdventureWorks_Full_20260503_220000.bak'
+WITH MOVE 'AdventureWorks' TO 'F:\Data\AdventureWorks_restore.mdf',
+     MOVE 'AdventureWorks_log' TO 'G:\Logs\AdventureWorks_restore_log.ldf',
      NORECOVERY, REPLACE;
 ```
 
-### 2. Restore the Differential Backup (NORECOVERY)
+#### 2. Restore the Differential Backup (NORECOVERY)
 ```sql
-RESTORE DATABASE [AdventureWorks]
-FROM DISK = 'H:\SQLRestore\Differential\AdventureWorks_Diff_20260504_100000.bak'
+RESTORE DATABASE [AdventureWorks_restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\DIFF\AdventureWorks_Diff_20260504_100000.bak'
 WITH NORECOVERY;
 ```
 
-### 3. Restore Transaction Logs (RECOVERY)
+#### 3. Restore Transaction Logs (RECOVERY)
 Apply the log sequence. The final log restore uses the `RECOVERY` option to bring the database online.
 ```sql
-RESTORE LOG [AdventureWorks]
-FROM DISK = 'H:\SQLRestore\Logs\AdventureWorks_Log_20260504_101500.trn'
+RESTORE LOG [AdventureWorks_restore]
+FROM DISK = 'H:\SQLRestore\{ServerName}\{DatabaseName}\LOG\AdventureWorks_Log_20260504_101500.trn'
 WITH RECOVERY;
 ```
 
