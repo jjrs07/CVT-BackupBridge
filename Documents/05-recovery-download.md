@@ -67,6 +67,19 @@ The downloader executes the following steps:
 ### Folder Placement and Pathing
 The script downloads backup files to the path defined in the `$localBackupDir` variable. To maintain recovery consistency, it automatically recreates the source folder structure (e.g., `{ServerName}/{DatabaseName}/{BackupType}`) at the destination, ensuring the recovery environment mirrors the original production layout.
 
+7.  **Integrity Validation:** Once the download is complete, verify that the restored folder structure and file sizes match the original production source.
+    ```powershell
+    Set-Location "C:\Scripts\"
+    .\validation_script.ps1
+    ```
+
+![Validation Results](Images/Validation.png)
+
+*Figure 2: Validation script output confirming a 100% match between the source backup and the restored target.*
+
+### Validation Script Logic
+The `validation_script.ps1` performs a recursive comparison between the source (`$Source`) and the target (`$Target`) directories. It calculates relative paths for every file and compares them alongside their exact file sizes (in bytes). This ensures that no files were corrupted, truncated, or missed during the multi-threaded S3 transfer process.
+
 ---
 
 ## Target Staging Area
