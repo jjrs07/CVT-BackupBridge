@@ -61,7 +61,7 @@ Before running the synchronization script, ensure the following are configured o
 
 ## Implementation Logic
 
-The uploader follows a rigorous workflow for secure cloud synchronization. It is recommended to perform a manual run before automating the task.
+The uploader follows a thorough workflow for secure cloud synchronization. It is recommended to perform a manual run before automating the task.
 
 ### Step-by-Step Workflow
 1.  **Object Discovery:** Recursively scans `H:\SQLBackups` for `.bak` and `.trn` files.
