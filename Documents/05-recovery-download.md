@@ -55,9 +55,11 @@ Files should be downloaded to a dedicated volume to avoid contention with the pr
 ### Directory Layout (After Download)
 ```text
 H:\SQLRestore\
-├───Full\
-├───Differential\
-└───Logs\
+└───{ServerName}\
+    └───{DatabaseName}\
+        ├───FULL\
+        ├───DIFF\
+        └───LOG\
 ```
 
 > [!NOTE]
