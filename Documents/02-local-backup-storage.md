@@ -46,7 +46,7 @@ By separating backups by server, database, and type, we reduce the complexity of
 Consistency in naming allows scripts to parse metadata (like database name and date) directly from the filename.
 
 ### Pattern
-`SQLServer_{DatabaseName}_{BackupType}_{YYYYMMDD_HHMS}.{Extension}`
+`SQLServer_{DatabaseName}_{BackupType}_{YYYYMMDD_HHMM}.{Extension}`
 
 ### Examples
 *   **Full:** `SQLServer_AdventureWorks2019_Full_20260504_0336.bak`
@@ -78,6 +78,7 @@ Local storage is a transient "staging area" rather than long-term storage.
 *   **Cleanup Trigger:** The `S3_Uploader.ps1` script is responsible for verifying a successful cloud upload before purging the local copy.
 
 ![Backup Files on H Drive](Images/Backup_Files_H_Drive.png)
+
 *Figure 1: Verified backup files stored in the dedicated H:\SQLBackups directory.*
 
 ---
