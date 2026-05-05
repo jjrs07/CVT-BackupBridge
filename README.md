@@ -120,6 +120,13 @@ To get started with CVT BackupBridge, follow the phased documentation in the `Do
 
 ---
 
+## 🎓 Learning Path
+
+**Want to learn how I built the cloud foundation for this project?**
+Check out my **[CVT Cloud Labs](https://github.com/jjrs07/cvt-cloud-labs)** for hands-on tutorials on AWS, Linux, and Automation.
+
+---
+
 ## Strategic Implementation Drivers
 
 Actual backup upload and recovery performance will vary depending on the environment. Key factors include:
