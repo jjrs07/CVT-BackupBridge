@@ -46,7 +46,7 @@ if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     if (-not $networkPath) {
         # Fallback to CIM/WMI for systems where Get-PSDrive might not show DisplayRoot
         try {
-            $cim = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveName:'" -ErrorAction SilentlyContinue
+            $cim = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($driveName):'" -ErrorAction SilentlyContinue
             if ($cim -and $cim.ProviderName) { $networkPath = $cim.ProviderName }
         } catch {}
     }
