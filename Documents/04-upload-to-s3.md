@@ -30,10 +30,34 @@ The synchronization is powered by the `S3_Uploader.ps1` script, a high-performan
 
 ### Key Technical Features
 *   **Multi-Threaded Concurrent Uploads:** Utilizes a background job queue to process multiple files simultaneously (Max: 4 concurrent streams by default). This ensures maximum saturation of available network bandwidth.
-*   **Intelligent Folder Mapping:** Automatically parses the local `H:\SQLBackups` hierarchy and recreates a matching `{ServerName}/{DatabaseName}/{Type}` prefix structure in the S3 bucket.
+*   **Intelligent Folder Mapping:** Automatically parses the local hierarchy and recreates a matching `{ServerName}/{DatabaseName}/{Type}` prefix structure in the S3 bucket.
+*   **Mapped Network Drive Support:** Automatically resolves mapped drives (e.g., `Z:\`) to their original network share name (e.g., `SQL1Test`). This ensures that the root folder is preserved in S3 even when the source is a mounted drive.
 *   **Fault Tolerance (Automatic Retries):** Implements a robust retry mechanism. If a transfer fails due to transient network issues, the script re-queues the file (up to 3 times) before logging a permanent failure.
 *   **Dual-Validation Success Logic:** Beyond checking process exit codes, the script performs a secondary `aws s3 ls` verification to confirm object existence in the cloud vault before marking a task as complete.
 *   **Performance Telemetry:** Calculates and logs real-time transfer speeds (Mbps) and precise durations for every file, providing data-driven insights into "Bridge" performance.
+
+---
+
+## Mapped Network Drive Support
+
+The `S3_Uploader.ps1` script is optimized for environments where backups are stored on network shares or specialized storage appliances.
+
+### Handling Mapped Drives (e.g., Z:\)
+If you map a network share `\\backups\SQLBackups\SQL1Test` to drive **`Z:`**, the script intelligently identifies the leaf name of the share.
+
+*   **Configuration in `settings.json`:**
+    ```json
+    "BackupRootPath": "Z:\\"
+    ```
+*   **S3 Result:** The script will automatically prepend `SQL1Test/` to all objects in S3, preserving the server-specific root folder.
+*   **Switching Servers:** To upload from a different server (e.g., `SQL2Test`), simply re-map `Z:` to the new share or update the `BackupRootPath` to the new UNC path. No code changes are required.
+
+### Support for UNC Paths
+The script also supports direct UNC paths without drive mapping:
+```json
+"BackupRootPath": "\\\\backups\\SQLBackups\\SQL2Test"
+```
+In this case, the script will identify `SQL2Test` as the root folder for S3 organization.
 
 ---
 
