@@ -31,43 +31,28 @@ The synchronization is powered by the `S3_Uploader.ps1` script, a high-performan
 ### Key Technical Features
 *   **Multi-Threaded Concurrent Uploads:** Utilizes a background job queue to process multiple files simultaneously (Max: 4 concurrent streams by default). This ensures maximum saturation of available network bandwidth.
 *   **Intelligent Folder Mapping:** Automatically parses the local hierarchy and recreates a matching `{ServerName}/{DatabaseName}/{Type}` prefix structure in the S3 bucket.
-*   **Mapped Network Drive Support:** Automatically resolves mapped drives (e.g., `Z:\`) to their original network share name (e.g., `SQL1Test`). This ensures that the root folder is preserved in S3 even when the source is a mounted drive.
-*   **Fault Tolerance (Automatic Retries):** Implements a robust retry mechanism. If a transfer fails due to transient network issues, the script re-queues the file (up to 3 times) before logging a permanent failure.
-*   **Dual-Validation Success Logic:** Beyond checking process exit codes, the script performs a secondary `aws s3 ls` verification to confirm object existence in the cloud vault before marking a task as complete.
-*   **Performance Telemetry:** Calculates and logs real-time transfer speeds (Mbps) and precise durations for every file, providing data-driven insights into "Bridge" performance.
+*   **Dual-Validation Success Logic:** Implements a robust "Trust but Verify" approach. If the AWS CLI returns a non-zero exit code, the script automatically performs an `aws s3 ls` verification. If the object exists in S3, it is marked as a success, preventing redundant and time-consuming retries.
+*   **Mapped Network Drive & UNC Support:** Automatically resolves mapped drives (e.g., `Z:\`) to their original network share name (e.g., `SQL1Test`). It also natively supports direct UNC paths for enhanced reliability in "Run as Administrator" or service account contexts.
+*   **Legacy Compatibility:** Optimized for PowerShell 2.0+, ensuring compatibility with older Windows Server environments (WS 2008 R2 / 2012).
+*   **Fault Tolerance (Automatic Retries):** Implements a retry mechanism that only triggers if both the process exit code AND the S3 verification fail, ensuring maximum efficiency.
 
 ---
 
-## Mapped Network Drive Support
+## Mapped Network Drive & UNC Support
 
-The `S3_Uploader.ps1` script is optimized for environments where backups are stored on deep network hierarchies or specialized storage appliances.
+The `S3_Uploader.ps1` script is optimized for enterprise environments where backups are stored on deep network hierarchies or specialized storage appliances.
 
-### Intelligent Root Folder Resolution
-The script determines the S3 prefix based on the **last folder** in your `BackupRootPath`. This allows you to precisely control where the S3 hierarchy begins.
+### Handling Mapped Drives (e.g., Z:\)
+While the script can resolve mapped drives, **mapped drives are user-session specific**. They may not be visible to "Administrator" sessions or scheduled tasks.
 
-*   **Logic:** The script extracts the leaf folder name (e.g., `SQL1Test`) and prepends it to all S3 objects.
-*   **Drive Literal Protection:** The script automatically strips drive letters (e.g., `Z:`, `Z:\`) from the S3 path. If a drive root is provided, it attempts to resolve the network share name; if it cannot, it defaults to using only the subfolders to prevent invalid S3 keys like `Z:\/`.
+### UNC Paths (Recommended Strategy)
+For maximum reliability, it is recommended to use direct **UNC Paths** in `settings.json`. This ensures the script can access the backup source regardless of user session or administrator elevation.
 
-### Handling Mapped Drives
-If you want to preserve a specific folder name in S3, provide the full path in `settings.json`:
-
-*   **Deep Path Configuration:**
+*   **UNC Configuration:**
     ```json
-    "BackupRootPath": "Z:\\ahfas2\\Mahfas2Sqlbkupsaggr1\\SQL1Test"
+    "BackupRootPath": "\\\\backups\\mahfas2\\Mahfas2Sqlbkupsaggr1\\SQL1Test"
     ```
-*   **S3 Result:** The script identifies `SQL1Test` as the leaf and uses it as the root. Objects will be stored as `s3://bucket/SQL1Test/Database/file.bak`.
-
-### Dynamic Server Resolution
-If you set the path to a drive root that is mapped to a network share:
-*   **Configuration:** `"BackupRootPath": "Z:\\"`
-*   **Behavior:** The script resolves `Z:` to its share name (e.g., `\\backups\SQL1Test`) and uses the leaf (`SQL1Test`) as the S3 prefix. This is ideal for multi-server automation where you simply swap the drive mapping.
-
-### Support for UNC Paths
-The script also supports direct UNC paths:
-```json
-"BackupRootPath": "\\\\backups\\SQLBackups\\SQL2Test"
-```
-In this case, `SQL2Test` will be identified as the root folder for S3 organization.
+*   **S3 Result:** The script automatically identifies `SQL1Test` as the leaf and uses it as the S3 root. Objects will be stored as `s3://bucket/SQL1Test/Database/file.bak`.
 
 ---
 
