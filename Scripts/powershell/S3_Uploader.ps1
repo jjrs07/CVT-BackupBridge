@@ -1,7 +1,7 @@
 # S3 Multi-Threaded Backup Uploader (Path Preserving Version)
 # Description: Recursively discovers SQL Server backup files (.bak, .trn) and uploads them to AWS S3.
-# This version ensures the root folder name is preserved in the S3 key.
 # Supports multi-threaded processing (max simultaneous uploads) and automatic retries.
+# Compatibility: PowerShell 2.0+
 
 # ============================================================
 # CONFIGURATION LOADING
@@ -15,7 +15,11 @@ if (-not (Test-Path $configPath)) {
 
 if (Test-Path $configPath) {
     $config = Get-Content $configPath | ConvertFrom-Json
-    $bucket     = $config.S3Bucket.TrimEnd('/') + '/'
+    # Sanitize bucket URL: Ensure it starts with s3:// and ends with a single /
+    $bucketUrl = $config.S3Bucket.TrimEnd('/') + '/'
+    if (-not $bucketUrl.StartsWith("s3://")) { $bucketUrl = "s3://" + $bucketUrl }
+    
+    $bucket     = $bucketUrl
     $region     = $config.AWSRegion
     $maxJobs    = $config.MaxSimultaneousJobs
     $backupRoot = $config.BackupRootPath
@@ -44,10 +48,12 @@ if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     }
     
     if (-not $networkPath) {
-        # Fallback to CIM/WMI for systems where Get-PSDrive might not show DisplayRoot
+        # Fallback to WMI (compatible with PS 2.0)
         try {
-            $cim = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($driveName):'" -ErrorAction SilentlyContinue
-            if ($cim -and $cim.ProviderName) { $networkPath = $cim.ProviderName }
+            # Using ${} to delimit variable name from colon to avoid parser errors
+            $filter = "DeviceID='${driveName}:'"
+            $wmi = Get-WmiObject Win32_LogicalDisk -Filter $filter -ErrorAction SilentlyContinue
+            if ($wmi -and $wmi.ProviderName) { $networkPath = $wmi.ProviderName }
         } catch {}
     }
     
@@ -101,11 +107,12 @@ function Get-S3Folder {
     # Construct the base S3 path starting with the root folder name
     $s3PathParts = @()
     if ($RootFolderName) { $s3PathParts += $RootFolderName }
-    if ($relativeFolder) { $s3PathParts += ($relativeFolder -split '\\') }
+    if ($relativeFolder -and $relativeFolder -ne ".") { 
+        $s3PathParts += ($relativeFolder -split '\\') 
+    }
     
     # Specialized logic for Transaction Logs: <ServerName>\<DatabaseName>\LOG
     # Expected structure for .trn: <ServerName>\<DatabaseName>\<Type>\<File>
-    # With RootFolderName: <Root>\<DB>\<Type> -> <Root>\<DB>\LOG
     if ($FilePath.EndsWith('.trn')) {
         $parts = $s3PathParts
         if ($parts.Length -ge 3) {
@@ -115,16 +122,17 @@ function Get-S3Folder {
     }
     
     # Join with forward slashes for S3
-    return $s3PathParts -join '/'
+    $finalPath = $s3PathParts -join '/'
+    return $finalPath
 }
 
 # ============================================================
 # INITIALIZATION
 # ============================================================
 
-# Discover backup files
-$files = Get-ChildItem -Path $backupRoot -Recurse -File | 
-    Where-Object { $_.Extension -in '.bak', '.trn' } |
+# Discover backup files (PS 2.0 compatible discovery)
+$files = Get-ChildItem -Path $backupRoot -Recurse | 
+    Where-Object { (-not $_.PSIsContainer) -and ($_.Extension -in '.bak', '.trn') } |
     Sort-Object FullName |
     Select-Object -ExpandProperty FullName
 
@@ -155,7 +163,8 @@ Write-Log "========================================="
 
 $queue = [System.Collections.Queue]::new()
 foreach ($file in $files) {
-    $fileSize = [math]::Round((Get-Item $file).Length / 1GB, 2)
+    $fileItem = Get-Item $file
+    $fileSize = [math]::Round($fileItem.Length / 1GB, 2)
     $queue.Enqueue(@{ 
         File       = $file; 
         FileName   = Split-Path $file -Leaf; 
@@ -175,10 +184,13 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
         $folder   = Get-S3Folder -FilePath $item.File -RootPath $backupRoot -RootFolderName $rootFolderName
         $outFile  = Join-Path (Split-Path $logFile) "$($item.FileName).log"
 
+        # Construct S3 destination
+        $s3Dest = if ($folder) { "$bucket$folder/" } else { "$bucket" }
+
         $s3Args = @(
             "s3", "cp", 
             $item.File, 
-            "$bucket$folder/", 
+            $s3Dest, 
             "--quiet", 
             "--storage-class", "STANDARD", 
             "--region", $region
@@ -197,10 +209,11 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
             StartTime  = Get-Date
             OutFile    = $outFile
             Retries    = $item.Retries
+            S3Dest     = $s3Dest
         }
         
         $retryLabel = if ($item.Retries -gt 0) { " (Retry $($item.Retries)/$maxRetries)" } else { "" }
-        Write-Log "STARTED  | $($item.FileName) -> $bucket$folder/ (PID: $($proc.Id))$retryLabel"
+        Write-Log "STARTED  | $($item.FileName) -> $($s3Dest) (PID: $($proc.Id))$retryLabel"
     }
 
     foreach ($procId in @($activeUploads.Keys)) {
@@ -216,7 +229,7 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
                 Write-Log "COMPLETE | $($entry.FileName) | Size: $($entry.FileSizeGB) GB | Duration: $(Format-Duration $durationSec) | Speed: $mbps Mbps | Progress: $completed/$total"
             } else {
                 $errFile = "$($entry.OutFile).err"
-                $errOutput = if (Test-Path $errFile) { Get-Content $errFile -Raw | ForEach-Object { $_.Trim() } } else { "Exit code: $($proc.ExitCode)" }
+                $errOutput = if (Test-Path $errFile) { Get-Content $errFile | ForEach-Object { $_.Trim() } } else { "Exit code: $($proc.ExitCode)" }
                 
                 if ($entry.Retries -lt $maxRetries) {
                     Write-Log "RETRYING | $($entry.FileName) | Attempt $($entry.Retries + 1)/$maxRetries | Error: $errOutput"
