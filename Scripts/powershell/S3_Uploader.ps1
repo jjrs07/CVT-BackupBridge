@@ -30,12 +30,11 @@ if (Test-Path $configPath) {
 # ============================================================
 
 # Identify the name of the root folder to prepend in S3
-$rootItem = Get-Item $backupRoot
-$rootFolderName = $rootItem.Name
+$rootFolderName = Split-Path $backupRoot -Leaf
 
 # Handle cases where backupRoot is a drive root (e.g., Z:\)
-if ($rootFolderName -match '^[A-Z]:$') {
-    $driveName = $rootFolderName.Replace(':', '')
+if ($backupRoot -match '^[A-Z]:\\?$') {
+    $driveName = $backupRoot.Substring(0, 1)
     $drive = Get-PSDrive $driveName -ErrorAction SilentlyContinue
     if ($drive -and $drive.DisplayRoot) {
         # Extract the leaf name from the network path (e.g., SQL1Test from \\backups\SQLBackups\SQL1Test)
