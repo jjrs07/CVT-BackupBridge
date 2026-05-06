@@ -7,11 +7,12 @@ This document describes the synchronization process that bridges local SQL Serve
 ## Table of Contents
 1. [Objective](#objective)
 2. [Script Overview (S3_Uploader.ps1)](#script-overview-s3_uploaderps1)
-3. [Prerequisites](#prerequisites)
-4. [Script Installation](#script-installation)
-5. [Implementation Logic](#implementation-logic)
-6. [Automation and Scheduling](#automation-and-scheduling)
-7. [Next Step](#next-step)
+3. [Mapped Network Drive & UNC Support](#mapped-network-drive--unc-support)
+4. [Prerequisites](#prerequisites)
+5. [Script Installation](#script-installation)
+6. [Implementation Logic](#implementation-logic)
+7. [Automation and Scheduling](#automation-and-scheduling)
+8. [Next Step](#next-step)
 
 ---
 
@@ -50,9 +51,9 @@ For maximum reliability, it is recommended to use direct **UNC Paths** in `setti
 
 *   **UNC Configuration:**
     ```json
-    "BackupRootPath": "\\\\backups\\mahfas2\\Mahfas2Sqlbkupsaggr1\\SQL1Test"
+    "BackupRootPath": "\\\\NetworkPath\\Backups\\ServerName"
     ```
-*   **S3 Result:** The script automatically identifies `SQL1Test` as the leaf and uses it as the S3 root. Objects will be stored as `s3://bucket/SQL1Test/Database/file.bak`.
+*   **S3 Result:** The script automatically identifies `ServerName` as the leaf and uses it as the S3 root. Objects will be stored as `s3://bucket/ServerName/Database/file.bak`.
 
 ---
 
