@@ -32,17 +32,40 @@ if (Test-Path $configPath) {
 # Identify the name of the root folder to prepend in S3
 $rootFolderName = Split-Path $backupRoot -Leaf
 
-# Handle cases where backupRoot is a drive root (e.g., Z:\)
-if ($backupRoot -match '^[A-Z]:\\?$') {
+# Handle cases where backupRoot is a drive root (e.g., Z:\) or resolution is needed
+if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     $driveName = $backupRoot.Substring(0, 1)
+    
+    # Try multiple ways to get the network name
+    $networkPath = ""
     $drive = Get-PSDrive $driveName -ErrorAction SilentlyContinue
     if ($drive -and $drive.DisplayRoot) {
-        # Extract the leaf name from the network path (e.g., SQL1Test from \\backups\SQLBackups\SQL1Test)
-        $rootFolderName = Split-Path $drive.DisplayRoot -Leaf
+        $networkPath = $drive.DisplayRoot
+    }
+    
+    if (-not $networkPath) {
+        # Fallback to CIM/WMI for systems where Get-PSDrive might not show DisplayRoot
+        try {
+            $cim = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$driveName:'" -ErrorAction SilentlyContinue
+            if ($cim -and $cim.ProviderName) { $networkPath = $cim.ProviderName }
+        } catch {}
+    }
+    
+    if ($networkPath) {
+        # Extract the leaf name from the network path (e.g., SQL1Test)
+        $rootFolderName = Split-Path $networkPath -Leaf
+    } else {
+        # If it's a local drive or can't be resolved, don't use the drive letter as a folder
+        $rootFolderName = ""
     }
 }
 
-Write-Host "Resolved S3 Root Folder: $rootFolderName"
+# Final cleanup: ensure no illegal S3 characters remain in the root folder name
+if ($rootFolderName) {
+    $rootFolderName = $rootFolderName -replace '[:\\/]', ''
+}
+
+Write-Host "Resolved S3 Root Folder: $(if ($rootFolderName) { $rootFolderName } else { "[None - Using subfolders only]" })"
 
 # ============================================================
 # UTILITY FUNCTIONS
