@@ -40,7 +40,6 @@ $rootFolderName = Split-Path $backupRoot -Leaf
 if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     $driveName = $backupRoot.Substring(0, 1)
     
-    # Try multiple ways to get the network name
     $networkPath = ""
     $drive = Get-PSDrive $driveName -ErrorAction SilentlyContinue
     if ($drive -and $drive.DisplayRoot) {
@@ -48,9 +47,7 @@ if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     }
     
     if (-not $networkPath) {
-        # Fallback to WMI (compatible with PS 2.0)
         try {
-            # Using ${} to delimit variable name from colon to avoid parser errors
             $filter = "DeviceID='${driveName}:'"
             $wmi = Get-WmiObject Win32_LogicalDisk -Filter $filter -ErrorAction SilentlyContinue
             if ($wmi -and $wmi.ProviderName) { $networkPath = $wmi.ProviderName }
@@ -58,20 +55,17 @@ if ($backupRoot -match '^[A-Z]:\\?$' -or $rootFolderName -match ':') {
     }
     
     if ($networkPath) {
-        # Extract the leaf name from the network path (e.g., SQL1Test)
         $rootFolderName = Split-Path $networkPath -Leaf
     } else {
-        # If it's a local drive or can't be resolved, don't use the drive letter as a folder
         $rootFolderName = ""
     }
 }
 
-# Final cleanup: ensure no illegal S3 characters remain in the root folder name
 if ($rootFolderName) {
     $rootFolderName = $rootFolderName -replace '[:\\/]', ''
 }
 
-Write-Host "Resolved S3 Root Folder: $(if ($rootFolderName) { $rootFolderName } else { "[None - Using subfolders only]" })"
+Write-Host "Resolved S3 Root Folder: $(if ($rootFolderName) { $rootFolderName } else { "[None]" })"
 
 # ============================================================
 # UTILITY FUNCTIONS
@@ -100,37 +94,29 @@ function Format-Duration {
 function Get-S3Folder {
     param([string]$FilePath, [string]$RootPath, [string]$RootFolderName)
     
-    # Calculate relative path from the backup root
     $relativePath   = $FilePath.Substring($RootPath.Length).TrimStart('\')
     $relativeFolder = Split-Path $relativePath -Parent
     
-    # Construct the base S3 path starting with the root folder name
     $s3PathParts = @()
     if ($RootFolderName) { $s3PathParts += $RootFolderName }
     if ($relativeFolder -and $relativeFolder -ne ".") { 
         $s3PathParts += ($relativeFolder -split '\\') 
     }
     
-    # Specialized logic for Transaction Logs: <ServerName>\<DatabaseName>\LOG
-    # Expected structure for .trn: <ServerName>\<DatabaseName>\<Type>\<File>
     if ($FilePath.EndsWith('.trn')) {
         $parts = $s3PathParts
         if ($parts.Length -ge 3) {
-            # parts[0] = Root (Server), parts[1] = DB, parts[2] = Type (usually 'LOG' or 'TRN')
             return "$($parts[0])/$($parts[1])/LOG"
         }
     }
     
-    # Join with forward slashes for S3
-    $finalPath = $s3PathParts -join '/'
-    return $finalPath
+    return $s3PathParts -join '/'
 }
 
 # ============================================================
 # INITIALIZATION
 # ============================================================
 
-# Discover backup files (PS 2.0 compatible discovery)
 $files = Get-ChildItem -Path $backupRoot -Recurse | 
     Where-Object { (-not $_.PSIsContainer) -and ($_.Extension -in '.bak', '.trn') } |
     Sort-Object FullName |
@@ -141,7 +127,6 @@ if (-not $files) {
     exit 1
 }
 
-# Initialize log file
 if (Test-Path $logFile) { Remove-Item $logFile -Force }
 
 # ============================================================
@@ -183,18 +168,10 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
         $item     = $queue.Dequeue()
         $folder   = Get-S3Folder -FilePath $item.File -RootPath $backupRoot -RootFolderName $rootFolderName
         $outFile  = Join-Path (Split-Path $logFile) "$($item.FileName).log"
+        $s3Dest   = if ($folder) { "$bucket$folder/" } else { "$bucket" }
 
-        # Construct S3 destination
-        $s3Dest = if ($folder) { "$bucket$folder/" } else { "$bucket" }
-
-        $s3Args = @(
-            "s3", "cp", 
-            $item.File, 
-            $s3Dest, 
-            "--quiet", 
-            "--storage-class", "STANDARD", 
-            "--region", $region
-        )
+        # Argument list as string for better PS 2.0 compatibility
+        $s3Args = "s3 cp `"$($item.File)`" `"$s3Dest`" --quiet --storage-class STANDARD --region $region"
 
         $proc = Start-Process -FilePath "aws" -ArgumentList $s3Args `
             -RedirectStandardOutput $outFile -RedirectStandardError "$outFile.err" `
@@ -224,13 +201,25 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
             $durationSec = [math]::Max(1, ((Get-Date) - $entry.StartTime).TotalSeconds)
             $mbps        = [math]::Round(($entry.FileSizeGB * 1024 * 8) / $durationSec, 1)
 
-            if ($proc.ExitCode -eq 0) {
+            # Success Verification with S3 Fallback
+            $uploadSuccess = ($proc.ExitCode -eq 0)
+            if (-not $uploadSuccess) {
+                # Small wait for S3 to register the object
+                Start-Sleep -Seconds 2
+                $s3Path = "$($entry.S3Dest)$($entry.FileName)"
+                & aws s3 ls "$s3Path" --region $region | Out-Null
+                if ($LASTEXITCODE -eq 0) { $uploadSuccess = $true }
+            }
+
+            if ($uploadSuccess) {
                 $completed++
                 Write-Log "COMPLETE | $($entry.FileName) | Size: $($entry.FileSizeGB) GB | Duration: $(Format-Duration $durationSec) | Speed: $mbps Mbps | Progress: $completed/$total"
             } else {
                 $errFile = "$($entry.OutFile).err"
                 $errOutput = if (Test-Path $errFile) { Get-Content $errFile | ForEach-Object { $_.Trim() } } else { "Exit code: $($proc.ExitCode)" }
-                
+                # Ensure $errOutput is a string for logging
+                if ($errOutput -is [array]) { $errOutput = $errOutput -join " " }
+
                 if ($entry.Retries -lt $maxRetries) {
                     Write-Log "RETRYING | $($entry.FileName) | Attempt $($entry.Retries + 1)/$maxRetries | Error: $errOutput"
                     $queue.Enqueue(@{ 
