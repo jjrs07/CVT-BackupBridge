@@ -15,7 +15,7 @@ if (-not (Test-Path $configPath)) {
 
 if (Test-Path $configPath) {
     $config = Get-Content $configPath | ConvertFrom-Json
-    $bucket     = $config.S3Bucket
+    $bucket     = $config.S3Bucket.TrimEnd('/') + '/'
     $region     = $config.AWSRegion
     $maxJobs    = $config.MaxSimultaneousJobs
     $backupRoot = $config.BackupRootPath
@@ -200,7 +200,7 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
         }
         
         $retryLabel = if ($item.Retries -gt 0) { " (Retry $($item.Retries)/$maxRetries)" } else { "" }
-        Write-Log "STARTED  | $($item.FileName) -> s3://$bucket/$folder/ (PID: $($proc.Id))$retryLabel"
+        Write-Log "STARTED  | $($item.FileName) -> $bucket$folder/ (PID: $($proc.Id))$retryLabel"
     }
 
     foreach ($procId in @($activeUploads.Keys)) {
