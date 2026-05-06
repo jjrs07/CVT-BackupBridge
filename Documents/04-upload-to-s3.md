@@ -40,24 +40,34 @@ The synchronization is powered by the `S3_Uploader.ps1` script, a high-performan
 
 ## Mapped Network Drive Support
 
-The `S3_Uploader.ps1` script is optimized for environments where backups are stored on network shares or specialized storage appliances.
+The `S3_Uploader.ps1` script is optimized for environments where backups are stored on deep network hierarchies or specialized storage appliances.
 
-### Handling Mapped Drives (e.g., Z:\)
-If you map a network share `\\backups\SQLBackups\SQL1Test` to drive **`Z:`**, the script intelligently identifies the leaf name of the share.
+### Intelligent Root Folder Resolution
+The script determines the S3 prefix based on the **last folder** in your `BackupRootPath`. This allows you to precisely control where the S3 hierarchy begins.
 
-*   **Configuration in `settings.json`:**
+*   **Logic:** The script extracts the leaf folder name (e.g., `SQL1Test`) and prepends it to all S3 objects.
+*   **Drive Literal Protection:** The script automatically strips drive letters (e.g., `Z:`, `Z:\`) from the S3 path. If a drive root is provided, it attempts to resolve the network share name; if it cannot, it defaults to using only the subfolders to prevent invalid S3 keys like `Z:\/`.
+
+### Handling Mapped Drives
+If you want to preserve a specific folder name in S3, provide the full path in `settings.json`:
+
+*   **Deep Path Configuration:**
     ```json
-    "BackupRootPath": "Z:\\"
+    "BackupRootPath": "Z:\\ahfas2\\Mahfas2Sqlbkupsaggr1\\SQL1Test"
     ```
-*   **S3 Result:** The script will automatically prepend `SQL1Test/` to all objects in S3, preserving the server-specific root folder.
-*   **Switching Servers:** To upload from a different server (e.g., `SQL2Test`), simply re-map `Z:` to the new share or update the `BackupRootPath` to the new UNC path. No code changes are required.
+*   **S3 Result:** The script identifies `SQL1Test` as the leaf and uses it as the root. Objects will be stored as `s3://bucket/SQL1Test/Database/file.bak`.
+
+### Dynamic Server Resolution
+If you set the path to a drive root that is mapped to a network share:
+*   **Configuration:** `"BackupRootPath": "Z:\\"`
+*   **Behavior:** The script resolves `Z:` to its share name (e.g., `\\backups\SQL1Test`) and uses the leaf (`SQL1Test`) as the S3 prefix. This is ideal for multi-server automation where you simply swap the drive mapping.
 
 ### Support for UNC Paths
-The script also supports direct UNC paths without drive mapping:
+The script also supports direct UNC paths:
 ```json
 "BackupRootPath": "\\\\backups\\SQLBackups\\SQL2Test"
 ```
-In this case, the script will identify `SQL2Test` as the root folder for S3 organization.
+In this case, `SQL2Test` will be identified as the root folder for S3 organization.
 
 ---
 
