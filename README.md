@@ -17,6 +17,7 @@ Hybrid SQL Server backup and recovery solution that uploads on-premises SQL Serv
 - [Strategic Value for IT Leaders](#strategic-value-for-it-leaders)
 - [Lessons Learned](#lessons-learned)
 - [Lab Environment](#lab-environment)
+- [Learning Path](#learning-path)
 - [Strategic Implementation Drivers](#strategic-implementation-drivers)
 - [Future Enhancements](#future-enhancements)
 - [Author](#author)
@@ -120,7 +121,7 @@ To get started with CVT BackupBridge, follow the phased documentation in the `Do
 
 ---
 
-## 🎓 Learning Path
+## Learning Path
 
 **Want to learn how I built the cloud foundation for this project?**
 Check out my **[CVT Cloud Labs](https://github.com/jjrs07/cvt-cloud-labs)** for hands-on tutorials on AWS, Linux, and Automation.
