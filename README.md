@@ -176,6 +176,16 @@ Production implementations should be benchmarked and tuned according to actual d
 
 ---
 
+## Feedback & Contributions
+
+This project is a continuous work in progress. If you spot any **typos**, notice **discrepancies in screenshots**, or have **suggestions** for improvement, I would love to hear from you! Your feedback helps make this resource better for everyone.
+
+Please feel free to reach out or open an issue:
+*   **Issues:** [Open a GitHub Issue](https://github.com/jjrs07/CVT-BackupBridge/issues)
+*   **Contact:** [James Santos](https://github.com/jjrs07)
+
+---
+
 ## Author
 
 **James Santos**
