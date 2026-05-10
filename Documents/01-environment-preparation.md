@@ -202,8 +202,8 @@ To enable the PowerShell automation scripts to communicate with AWS S3, the **AW
     ```powershell
     aws configure
     ```
-    *   **AWS Access Key ID:** (From Step 5) (e.g., `AKIAIOSFODNN7EXAMPLE`)
-    *   **AWS Secret Access Key:** (From Step 5) (e.g., `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`)
+    *   **AWS Access Key ID:** (From Step 5)
+    *   **AWS Secret Access Key:** (From Step 5)
     *   **Default region name:** (e.g., `ap-southeast-1`)
     *   **Default output format:** `json`
 
