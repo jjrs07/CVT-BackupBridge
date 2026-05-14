@@ -1,7 +1,15 @@
-# S3 Multi-Threaded Backup Uploader (Path Preserving Version)
-# Description: Recursively discovers SQL Server backup files (.bak, .trn) and uploads them to AWS S3.
-# Supports multi-threaded processing (max simultaneous uploads) and automatic retries.
+# S3 Multi-Threaded Backup Uploader v2 (Path Preserving & Selective)
+# Description: Recursively discovers SQL Server backup files and uploads them to AWS S3.
+# v2 Improvements: Added -IncludeFilter and -LatestOnly for selective uploads.
 # Compatibility: PowerShell 2.0+
+
+param(
+    [Parameter(HelpMessage="Filter files by name (supports wildcards like *db10103.bak)")]
+    [string[]]$IncludeFilter = @('*'),
+
+    [Parameter(HelpMessage="Only upload the newest file in each sub-folder")]
+    [switch]$LatestOnly
+)
 
 # ============================================================
 # CONFIGURATION LOADING
@@ -27,7 +35,7 @@ if (Test-Path $configPath) {
     $region     = $config.AWSRegion
     $maxJobs    = $config.MaxSimultaneousJobs
     $backupRoot = $config.BackupRootPath
-    $logFile    = Join-Path $config.LogDirectory "S3Upload.log"
+    $logFile    = Join-Path $config.LogDirectory "S3Upload_v2.log"
 } else {
     Write-Error "Configuration file not found. Please ensure settings.json exists."
     exit 1
@@ -118,17 +126,46 @@ function Get-S3Folder {
 }
 
 # ============================================================
-# INITIALIZATION
+# INITIALIZATION & FILE DISCOVERY
 # ============================================================
 
-$files = Get-ChildItem -Path $backupRoot -Recurse | 
-    Where-Object { (-not $_.PSIsContainer) -and ($_.Extension -in '.bak', '.trn') } |
-    Sort-Object FullName |
-    Select-Object -ExpandProperty FullName
+Write-Log "Searching for files in: $backupRoot"
+
+# 1. Base Discovery (.bak and .trn only)
+$foundFiles = Get-ChildItem -Path $backupRoot -Recurse | 
+    Where-Object { (-not $_.PSIsContainer) -and ($_.Extension -in '.bak', '.trn') }
+
+# 2. Apply IncludeFilter (e.g., *db10103.bak)
+if ($IncludeFilter -notcontains '*') {
+    Write-Log "Applying Filter: $($IncludeFilter -join ', ')"
+    $foundFiles = $foundFiles | Where-Object { 
+        $name = $_.Name
+        $isMatch = $false
+        foreach ($f in $IncludeFilter) {
+            if ($name -like $f) { $isMatch = $true; break }
+        }
+        $isMatch
+    }
+}
+
+# 3. Apply LatestOnly (Pick newest per folder)
+if ($LatestOnly) {
+    Write-Log "Filtering for Latest File only in each folder..."
+    # Compatible with PS 2.0+ (Group-Object and custom selection)
+    $grouped = $foundFiles | Group-Object { Split-Path $_.FullName -Parent }
+    $filteredList = @()
+    foreach ($group in $grouped) {
+        $sorted = $group.Group | Sort-Object LastWriteTime -Descending
+        $filteredList += $sorted[0]
+    }
+    $foundFiles = $filteredList
+}
+
+$files = $foundFiles | Sort-Object FullName | Select-Object -ExpandProperty FullName
 
 if (-not $files) {
-    Write-Log "No backup files found under $backupRoot"
-    exit 1
+    Write-Log "No matching backup files found."
+    exit 0
 }
 
 if (Test-Path $logFile) { Remove-Item $logFile -Force }
@@ -144,10 +181,12 @@ $failed         = 0
 $maxRetries     = 3
 $activeUploads  = @{}
 
-Write-Log "===== S3 Upload Queue Started (Path Preserving) ====="
+Write-Log "===== S3 Upload Queue v2 Started ====="
 Write-Log "Total files to upload: $total"
 Write-Log "S3 Root Folder: $rootFolderName"
 Write-Log "Destination bucket: $bucket"
+if ($LatestOnly) { Write-Log "Mode: Latest Only" }
+if ($IncludeFilter -notcontains '*') { Write-Log "Filter: $($IncludeFilter -join ', ')" }
 Write-Log "========================================="
 
 $queue = [System.Collections.Queue]::new()
