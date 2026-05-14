@@ -13,6 +13,10 @@ if (-not (Test-Path $configPath)) {
     $configPath = Join-Path $scriptPath "settings.json"
 }
 
+# Check exact path of the script and settings.json
+Write-Host "Script Path: $scriptPath"
+Write-Host "Config Path: $configPath"
+
 if (Test-Path $configPath) {
     $config = Get-Content $configPath | ConvertFrom-Json
     # Sanitize bucket URL: Ensure it starts with s3:// and ends with a single /
