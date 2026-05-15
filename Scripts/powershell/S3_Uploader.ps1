@@ -202,6 +202,15 @@ foreach ($file in $files) {
 }
 
 # ============================================================
+# PREREQUISITE CHECK
+# ============================================================
+$awsPath = Get-Command "aws" -ErrorAction SilentlyContinue
+if (-not $awsPath) {
+    Write-Error "AWS CLI ('aws') was not found in the system PATH. Please install AWS CLI or ensure it is accessible."
+    exit 1
+}
+
+# ============================================================
 # MAIN EXECUTION LOOP
 # ============================================================
 
@@ -216,24 +225,31 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
         # Argument list as string for better PS 2.0 compatibility
         $s3Args = "s3 cp `"$($item.File)`" `"$s3Dest`" --quiet --storage-class STANDARD --region $region"
 
-        $proc = Start-Process -FilePath "aws" -ArgumentList $s3Args `
-            -RedirectStandardOutput $outFile -RedirectStandardError "$outFile.err" `
-            -NoNewWindow -PassThru
+        try {
+            $proc = Start-Process -FilePath "aws" -ArgumentList $s3Args `
+                -RedirectStandardOutput $outFile -RedirectStandardError "$outFile.err" `
+                -NoNewWindow -PassThru
+            
+            if ($null -eq $proc) { throw "Failed to start process for $($item.FileName)" }
 
-        $activeUploads[$proc.Id] = @{
-            Process    = $proc
-            File       = $item.File
-            FileName   = $item.FileName
-            FileSizeGB = $item.FileSizeGB
-            Folder     = $folder
-            StartTime  = Get-Date
-            OutFile    = $outFile
-            Retries    = $item.Retries
-            S3Dest     = $s3Dest
+            $activeUploads[$proc.Id] = @{
+                Process    = $proc
+                File       = $item.File
+                FileName   = $item.FileName
+                FileSizeGB = $item.FileSizeGB
+                Folder     = $folder
+                StartTime  = Get-Date
+                OutFile    = $outFile
+                Retries    = $item.Retries
+                S3Dest     = $s3Dest
+            }
+            
+            $retryLabel = if ($item.Retries -gt 0) { " (Retry $($item.Retries)/$maxRetries)" } else { "" }
+            Write-Log "STARTED  | $($item.FileName) -> $($s3Dest) (PID: $($proc.Id))$retryLabel"
+        } catch {
+            $failed++
+            Write-Log "ERROR    | Failed to start upload for $($item.FileName): $($_.Exception.Message)"
         }
-        
-        $retryLabel = if ($item.Retries -gt 0) { " (Retry $($item.Retries)/$maxRetries)" } else { "" }
-        Write-Log "STARTED  | $($item.FileName) -> $($s3Dest) (PID: $($proc.Id))$retryLabel"
     }
 
     foreach ($procId in @($activeUploads.Keys)) {
