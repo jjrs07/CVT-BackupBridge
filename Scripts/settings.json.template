@@ -1,8 +1,10 @@
 {
     "S3Bucket": "s3://your-bucket-name",
     "AWSRegion": "ap-southeast-1",
-    "MaxSimultaneousJobs": 4,
-    "BackupRootPath": "H:\\SQLBackups",
+    "MaxSimultaneousJobs": 2,
+    "AwsCliMaxConcurrentRequests": 20,
+    "AwsCliMultipartChunksize": "64MB",
+    "BackupRootPath": "H:\\\\SQLBackups",
     "RestoreRootPath": "H:\\SQLRestore",
     "LogDirectory": "C:\\Logs"
 }

@@ -36,6 +36,10 @@ if (Test-Path $configPath) {
     $maxJobs    = $config.MaxSimultaneousJobs
     $backupRoot = $config.BackupRootPath
     $logFile    = Join-Path $config.LogDirectory "S3Upload_v2.log"
+
+    # AWS CLI Tuning Parameters
+    $awsMaxConcurrent = if ($config.AwsCliMaxConcurrentRequests) { $config.AwsCliMaxConcurrentRequests } else { 10 }
+    $awsChunkSize     = if ($config.AwsCliMultipartChunksize) { $config.AwsCliMultipartChunksize } else { "8MB" }
 } else {
     Write-Error "Configuration file not found. Please ensure settings.json exists."
     exit 1
@@ -209,6 +213,13 @@ if (-not $awsPath) {
     Write-Error "AWS CLI ('aws') was not found in the system PATH. Please install AWS CLI or ensure it is accessible."
     exit 1
 }
+
+# ============================================================
+# AWS CLI TUNING
+# ============================================================
+Write-Log "Applying AWS CLI Tuning: Max Concurrent=$awsMaxConcurrent, Chunk Size=$awsChunkSize"
+& aws configure set default.s3.max_concurrent_requests $awsMaxConcurrent
+& aws configure set default.s3.multipart_chunksize $awsChunkSize
 
 # ============================================================
 # MAIN EXECUTION LOOP

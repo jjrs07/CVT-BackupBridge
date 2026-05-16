@@ -1,6 +1,7 @@
 # AWS/Security
 *accessKeys.csv
 settings.json
+S3_Monitoring_Guide.md
 *.env
 *.credentials
 
