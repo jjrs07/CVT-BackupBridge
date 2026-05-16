@@ -30,9 +30,34 @@ To upload **all** backups found in your configured `BackupRootPath`:
   .\S3_Uploader.ps1 -LatestOnly
   ```
 
+### ⚡ Performance Tuning (Advanced)
+The uploader includes dynamic tuning for high-bandwidth environments. These settings are managed in `settings.json`:
+- **MaxSimultaneousJobs:** Controls how many *different files* upload at once (Default: 2).
+- **AwsCliMaxConcurrentRequests:** Controls how many *threads per file* are used (Default: 20).
+- **AwsCliMultipartChunksize:** Chunk size for large files (Default: 64MB).
+
+### 🔍 Monitoring & Status
+Since the script runs in the background or via RDP, use these commands for monitoring:
+
+**Check if the Master Script is Running:**
+```powershell
+Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe' AND CommandLine LIKE '%S3_Uploader.ps1%'"
+```
+
+**Monitor Active Transfers:**
+```powershell
+Get-Process aws -ErrorAction SilentlyContinue
+```
+
+**Tail the Live Log:**
+```powershell
+Get-Content "C:\Logs\S3Upload_v2.log" -Tail 20 -Wait
+```
+
 ### Key Logic
 - **Path Preservation:** Local structure like `C:\Backups\DB01\Full\` becomes `s3://bucket/DB01/Full/`.
 - **Log Redirection:** Transaction logs (`.trn`) are automatically moved to a `/LOG` folder in S3.
+- **Dynamic Tuning:** Automatically applies performance optimizations to the AWS CLI environment on startup.
 
 ---
 
