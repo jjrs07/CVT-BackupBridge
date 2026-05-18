@@ -312,5 +312,5 @@ while ($queue.Count -gt 0 -or $activeUploads.Count -gt 0) {
 
 Write-Log "========================================="
 Write-Log "===== Upload Queue Complete ====="
-Write-Log "Total: $total | Completed: $completed | Failed: $failed | Elapsed: $(Format-Duration [int]((Get-Date) - $queueStartTime).TotalSeconds)"
+Write-Log "Total: $total | Completed: $completed | Failed: $failed | Elapsed: $(Format-Duration ((Get-Date) - $queueStartTime).TotalSeconds)"
 Write-Log "========================================="
