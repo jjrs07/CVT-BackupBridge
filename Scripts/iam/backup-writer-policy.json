@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListDesignatedBackupPrefix",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::<BUCKET_NAME>",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceAccount": "<ACCOUNT_ID>"
+        },
+        "StringLike": {
+          "s3:prefix": [
+            "<PREFIX>",
+            "<PREFIX>/*"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "UploadBackupObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:AbortMultipartUpload"
+      ],
+      "Resource": "arn:aws:s3:::<BUCKET_NAME>/<PREFIX>/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceAccount": "<ACCOUNT_ID>"
+        }
+      }
+    }
+  ]
+}
