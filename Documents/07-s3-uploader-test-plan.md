@@ -674,9 +674,9 @@ Pass if the object exists, `ContentLength` equals the local byte length, no inco
 
 ## 7. Defects identified during test design
 
-### D-01: Actual AWS CLI exit code may be masked in Windows PowerShell 5.1
+### D-01: AWS CLI exit-code masking in Windows PowerShell 5.1 — resolved
 
-The script combines `$ErrorActionPreference = 'Stop'` with native stderr redirection through `2>&1`. Windows PowerShell 5.1 can represent native stderr as PowerShell error records. Control may enter `catch` before `$LASTEXITCODE` is captured, after which the script forces exit code 1. TC-10 through TC-15 and TC-18 must confirm exact propagation.
+The original refactor combined `$ErrorActionPreference = 'Stop'` with native stderr redirection through `2>&1`. Windows PowerShell 5.1 can promote native stderr to PowerShell error records before `$LASTEXITCODE` is captured. The script now temporarily uses `Continue` only around native AWS CLI invocations and restores the caller preference afterward, matching the downloader pattern. TC-10 through TC-15 and TC-18 remain required regression tests for exact propagation.
 
 ### D-02: Early validation failures are not structured
 
