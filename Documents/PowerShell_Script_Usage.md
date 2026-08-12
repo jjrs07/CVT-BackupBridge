@@ -1,92 +1,102 @@
 # PowerShell Scripts Usage Guide
 
-This guide covers the usage of the PowerShell scripts included in the CVT BackupBridge project for managing SQL Server backups with AWS S3.
+## Compatibility and common prerequisites
 
----
+- Windows PowerShell 5.1 or later. PowerShell 7 is not the documented validation baseline.
+- AWS CLI v2 in `PATH` for uploader/downloader.
+- `Scripts/settings.json` copied from the template.
+- Separate least-privilege Backup Writer and Recovery Reader identities.
+- No credentials in scripts or settings.
 
-## 📋 General Prerequisites
-- **AWS CLI** must be installed and configured.
-- **settings.json** must exist in the `Scripts/` folder (use `settings.json.template` as a base).
-- **Permissions:** The user running the scripts must have appropriate IAM permissions for S3 actions (`s3:PutObject`, `s3:ListBucket`, `s3:GetObject`).
+AWS CLI v2 internally manages request concurrency, multipart transfers, and retries. The PowerShell scripts do not create parallel AWS processes and do not consume `MaxSimultaneousJobs` or other concurrency settings.
 
----
+## S3_Uploader.ps1
 
-## 📤 S3_Uploader.ps1
-This script recursively discovers SQL Server backup files (`.bak`, `.trn`) and uploads them to S3 while preserving the folder structure.
-
-### Basic Usage
-To upload **all** backups found in your configured `BackupRootPath`:
 ```powershell
-.\S3_Uploader.ps1
+& '.\Scripts\powershell\S3_Uploader.ps1'
+$ExitCode = $LASTEXITCODE
 ```
 
-### Selective Upload Features
-- **Filter by Filename (`-IncludeFilter`):** Specify wildcards to target certain files.
-  ```powershell
-  .\S3_Uploader.ps1 -IncludeFilter "*db101*", "*db202*"
-  ```
-- **Latest Only (`-LatestOnly`):** Sync only the most recent backup file in each sub-directory.
-  ```powershell
-  .\S3_Uploader.ps1 -LatestOnly
-  ```
+Behavior:
 
-### ⚡ Performance Tuning (Advanced)
-The uploader includes dynamic tuning for high-bandwidth environments. These settings are managed in `settings.json`:
-- **MaxSimultaneousJobs:** Controls how many *different files* upload at once (Default: 2).
-- **AwsCliMaxConcurrentRequests:** Controls how many *threads per file* are used (Default: 20).
-- **AwsCliMultipartChunksize:** Chunk size for large files (Default: 64MB).
+- syncs only `.bak` and `.trn` recursively;
+- preserves relative hierarchy;
+- does not accept selective/latest-only parameters;
+- does not use `--delete` or delete objects;
+- logs to `S3Upload.log`; and
+- returns the AWS CLI exit code.
 
-### 🔍 Monitoring & Status
-Since the script runs in the background or via RDP, use these commands for monitoring:
+Exit 0 means the CLI transfer command succeeded. It is not proof that SQL can restore the backup.
 
-**Check if the Master Script is Running:**
+## S3_Downloader.ps1
+
 ```powershell
-Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe' AND CommandLine LIKE '%S3_Uploader.ps1%'"
+& '.\Scripts\powershell\S3_Downloader.ps1'
+$ExitCode = $LASTEXITCODE
 ```
 
-**Monitor Active Transfers:**
+Behavior:
+
+- syncs the configured current S3 prefix to `RestoreRootPath`;
+- creates the destination when necessary;
+- preserves hierarchy;
+- enables compatible stored S3 checksum validation;
+- does not use `--delete`; and
+- logs to `S3Download.log` and returns the CLI exit code.
+
+The script does not select historical VersionIds, restore archived objects, or execute SQL restores.
+
+## validation_script.ps1
+
 ```powershell
-Get-Process aws -ErrorAction SilentlyContinue
+& '.\Scripts\powershell\validation_script.ps1'
+$ExitCode = $LASTEXITCODE
 ```
 
-**Tail the Live Log:**
+Compares `.bak`/`.trn` relative paths and byte lengths using configured source/target paths.
+
+- 0: matching path/size sets.
+- 1: missing configuration/path or empty backup set.
+- 2: mismatch.
+
+This is completeness evidence, not a checksum and not suitable as the source-independent DR proof when the source is unavailable.
+
+## Get-BackupChain.ps1
+
 ```powershell
-Get-Content "C:\Logs\S3Upload_v2.log" -Tail 20 -Wait
+& '.\Scripts\powershell\Get-BackupChain.ps1' `
+  -BackupRoot 'H:\SQLRestore' `
+  -SqlInstance '<RecoveryInstance>' `
+  -DatabaseName '<Database>' `
+  -RecoveryTarget '<ISO-8601 timestamp with offset>' `
+  -OutputPath 'C:\Evidence\backup-chain.txt'
+$ExitCode = $LASTEXITCODE
 ```
 
-### Key Logic
-- **Path Preservation:** Local structure like `C:\Backups\DB01\Full\` becomes `s3://bucket/DB01/Full/`.
-- **Log Redirection:** Transaction logs (`.trn`) are automatically moved to a `/LOG` folder in S3.
-- **Dynamic Tuning:** Automatically applies performance optimizations to the AWS CLI environment on startup.
+- 0: candidate chain established.
+- 2: chain not established.
+- Other terminating error: invalid input, connection, metadata, or filesystem failure.
 
----
+The utility uses integrated SQL authentication and embeds no password. Review the report; it never restores a database.
 
-## 📥 S3_Downloader.ps1
-This script discovers backup files in your AWS S3 bucket and downloads them to your local `RestoreRootPath`.
+## Configuration fields
 
-### Basic Usage
-To download **everything** from the configured bucket:
+| Field | Used by |
+|---|---|
+| `S3Bucket` | uploader and downloader; may include a prefix |
+| `AWSRegion` | uploader and downloader |
+| `BackupRootPath` | uploader and optional validator |
+| `RestoreRootPath` | downloader and optional validator |
+| `LogDirectory` | uploader and downloader |
+
+## Monitoring and troubleshooting
+
 ```powershell
-.\S3_Downloader.ps1
+Get-Content 'C:\Logs\S3Upload.log' -Tail 50 -Wait
+Get-Content 'C:\Logs\S3Download.log' -Tail 50 -Wait
 ```
 
-### Key Features
-- **Automatic Directory Creation:** Recreates the S3 folder structure locally on your machine.
-- **Verification:** Automatically checks if the downloaded file exists and has content before marking it as complete.
-- **Multi-threaded:** Downloads multiple files simultaneously based on `MaxSimultaneousJobs` in `settings.json`.
+Use the logged AWS CLI output and exit code. A successful `aws s3 ls` call does not prove a failed transfer succeeded. Do not use `--no-verify-ssl` or broaden IAM permissions as a troubleshooting shortcut.
 
----
+For production, add centralized log collection, alerts, overlap prevention, timeouts, capacity monitoring, temporary credential delivery, and recurring DR tests.
 
-## 📝 Common Features
-- **Multi-threading:** Both scripts use the `MaxSimultaneousJobs` setting to run parallel AWS CLI processes.
-- **Retry Logic:** Failed operations are automatically retried up to 3 times.
-- **Logging:** Detailed logs are generated in the directory specified by `LogDirectory` in `settings.json`.
-  - Uploader Log: `S3Upload.log`
-  - Downloader Log: `S3Download.log`
-
----
-
-## 🛠️ Troubleshooting
-- **AWS CLI Errors:** Run `aws s3 ls` manually to verify your connection and permissions.
-- **Path Issues:** Ensure `BackupRootPath` and `RestoreRootPath` in `settings.json` use double backslashes (e.g., `C:\\Backups\\`).
-- **Log Files:** If a specific file fails, check the individual `.log` and `.log.err` files generated in the log directory for that specific filename.
