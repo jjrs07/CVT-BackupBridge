@@ -1,111 +1,88 @@
 # 05 - Recovery Download
 
-This document details the process for retrieving SQL Server backup files from AWS S3 for restoration. In a disaster recovery (DR) scenario, the speed and reliability of this "Inbound" bridge are critical.
-
----
-
-## Table of Contents
-1. [Objective](#objective)
-2. [Script Overview (S3_Downloader.ps1)](#script-overview-s3_downloaderps1)
-3. [Prerequisites](#prerequisites)
-4. [Target Staging Area](#target-staging-area)
-5. [Implementation Logic](#implementation-logic)
-6. [Next Step](#next-step)
-
----
-
 ## Objective
 
-The objective of this phase is to:
-*   Securely retrieve backup files from the offsite cloud vault.
-*   Maximize download throughput using multi-threaded execution.
-*   Stage the files in a dedicated restore directory for SQL Server consumption.
+Retrieve the configured S3 recovery prefix to `RestoreRootPath` on a separate recovery server, preserve hierarchy, and return the AWS CLI result. This script stages files only; it does not perform SQL restore operations.
 
----
+## Implemented architecture
 
-## Script Overview (S3_Downloader.ps1)
+`S3_Downloader.ps1`:
 
-The retrieval process is powered by `S3_Downloader.ps1`, a robust PowerShell script designed for high-volume data transfers.
+1. Loads `Scripts/settings.json`.
+2. Validates `S3Bucket`, `AWSRegion`, `RestoreRootPath`, and `LogDirectory`.
+3. Creates the recovery directory when absent and confirms it is accessible.
+4. Validates AWS CLI v2.
+5. Executes one S3-to-local `aws s3 sync` with `--checksum-mode ENABLED` and without `--delete`.
+6. Logs start, source, destination, Region, AWS output, exit code, duration, and final result.
+7. Returns the AWS CLI exit code.
 
-### Key Features
-*   **Multi-Threaded Processing:** Downloads multiple files simultaneously to saturate available network bandwidth.
-*   **Recursive Discovery:** Automatically identifies the directory structure in S3 (Full, Diff, Logs) and recreates it locally.
-*   **Automatic Retries:** Implements a retry mechanism (default: 3 attempts) for transient network failures.
-*   **Comprehensive Logging:** Tracks performance metrics, including transfer speeds (Mbps) and durations.
+AWS CLI v2 owns concurrency, multipart behavior, and retry handling. The script has no custom multiprocess queue or retry loop.
 
----
+## Preconditions
 
-## Prerequisites
+- A separate recovery Windows/SQL Server exists and has sufficient staging/restore capacity.
+- Windows PowerShell 5.1+ and AWS CLI v2 are installed.
+- Recovery Reader credentials are independent of Backup Writer credentials.
+- The reader can list/get only the approved prefix and decrypt SSE-KMS objects when applicable.
+- Required Glacier Flexible/Deep Archive objects have completed a temporary S3 restore.
+- The correct current object versions are intended. Current `sync` does not select historical version IDs.
 
-To perform a recovery download, the following must be in place:
+## Run and interpret
 
-1.  **AWS CLI:** Installed and configured on the recovery server.
-2.  **IAM Permissions:** The IAM user must have `s3:GetObject` and `s3:ListBucket` permissions (as defined in `cvt-s3-policy.json`).
-3.  **Local Storage:** Sufficient disk space on the recovery volume to hold the downloaded backup files.
-
----
-
-## Target Staging Area
-
-Files should be downloaded to a dedicated volume to avoid contention with the production SQL Server data files.
-
-### Example
-`H:\SQLRestore`
-
-### Directory Layout (After Download)
-```text
-H:\SQLRestore\
-└───{ServerName}\
-    └───{DatabaseName}\
-        ├───FULL\
-        ├───DIFF\
-        └───LOG\
+```powershell
+& '.\Scripts\powershell\S3_Downloader.ps1'
+$DownloaderExitCode = $LASTEXITCODE
 ```
 
-> [!NOTE]
-> By maintaining the same directory structure as the local backup storage, the restoration scripts can easily identify the sequence of files required for a point-in-time recovery.
+- Exit 0: AWS CLI reported sync success.
+- Nonzero: retrieval failed; preserve `S3Download.log` and investigate.
 
----
+The downloader does not decide success from file existence or `Length > 0`.
 
-## Implementation Logic
+## Checksum behavior
 
-The downloader executes the following steps:
+`--checksum-mode ENABLED` requests validation using compatible S3 checksum metadata. It is useful transfer evidence but has limits:
 
-1.  **Object Discovery:** Recursively lists all objects in the specified S3 bucket.
-2.  **Queue Initialization:** Builds a local directory structure matching the S3 hierarchy.
-3.  **Parallel Execution:** Spawns background processes (using `Start-Process`) to execute `aws s3 cp` commands concurrently.
-4.  **Monitoring:** Continuously polls active jobs and reaps completed ones, logging speed and progress.
-5.  **Final Verification:** Confirms that all files are present and have non-zero lengths before exiting.
-6.  **Manual Execution (Test Run):** Ensure your `settings.json` is configured with the correct `RestoreRootPath`. Open PowerShell as Administrator and execute the script:
-    ```powershell
-    Set-Location "C:\Scripts\powershell\"
-    .\S3_Downloader.ps1
-    ```
+- older objects may lack compatible stored checksums;
+- it does not choose an authoritative historical object version;
+- it does not prove SQL backup-set readability, chain continuity, database consistency, or application usability.
 
-![S3 Downloader Running](Images/S3_Downloader_running.png)
+Record exact object keys, sizes, VersionIds, storage classes, encryption, and checksum/manifest evidence before retrieval. Do not describe path/size comparison as corruption detection or cryptographic integrity proof.
 
-*Figure 1: S3 Multi-Threaded Downloader retrieving backup sets with preserved folder hierarchy.*
+## Optional path/size comparison
 
-### Folder Placement and Pathing
-The script downloads backup files to the path defined in the `RestoreRootPath` variable within `settings.json`. To maintain recovery consistency, it automatically recreates the source folder structure (e.g., `{ServerName}/{DatabaseName}/{BackupType}`) at the destination, ensuring the recovery environment mirrors the original production layout.
+`validation_script.ps1` compares only `.bak` and `.trn` relative paths and exact lengths between `BackupRootPath` and `RestoreRootPath`:
 
-7.  **Integrity Validation:** Once the download is complete, verify that the restored folder structure and file sizes match the original production source.
-    ```powershell
-    Set-Location "C:\Scripts\powershell\"
-    .\validation_script.ps1
-    ```
+```powershell
+& '.\Scripts\powershell\validation_script.ps1'
+$ValidationExitCode = $LASTEXITCODE
+```
 
-![Validation Results](Images/Validation.png)
+- 0: compared backup sets match in path and size.
+- 1: configuration/path/empty-set error.
+- 2: missing, extra, or size-mismatched backup file.
 
-*Figure 2: Validation script output confirming a 100% match between the source backup and the restored target.*
+This is an optional diagnostic when both directories legitimately exist. It cannot prove source-independent DR because a real source-loss test makes the original path unavailable.
 
-### Validation Script Logic
-The `validation_script.ps1` performs a recursive comparison between the source (`BackupRootPath`) and the target (`RestoreRootPath`) directories defined in `settings.json`. It calculates relative paths for every file and compares them alongside their exact file sizes (in bytes). This ensures that no files were corrupted, truncated, or missed during the multi-threaded S3 transfer process.
+## LAB / POC versus production
 
----
+### LAB / POC
 
-## Next Step
+- Manual retrieval from current object versions.
+- Local staging created by the script.
+- CLI checksum mode plus documented SQL verification.
 
-With the backup files staged locally, the final phase is to perform the SQL Server restoration and validate data integrity:
+### Production-hardened
 
-[06 - Restore Validation](06-restore-validation.md)
+- Version-aware manifest/inventory and approval of selected versions.
+- Temporary Recovery Reader access, MFA/break-glass controls for humans, and KMS recovery testing.
+- Capacity, archive-retrieval, download, and integrity monitoring.
+- Separate recovery account/Region where required.
+- Measured download time as part of end-to-end RTO.
+
+## Next steps
+
+1. Run [SQL backup verification](09-sql-backup-verification.md).
+2. Generate the [candidate backup chain](10-get-backup-chain.md).
+3. Follow the [end-to-end DR runbook](12-end-to-end-dr-validation-runbook.md).
+
