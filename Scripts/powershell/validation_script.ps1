@@ -50,18 +50,18 @@ if (!(Test-Path $Target)) {
 }
 
 # Recursively discover files in both directories
-$SourceFiles = Get-ChildItem $Source -Recurse -File
-$TargetFiles = Get-ChildItem $Target -Recurse -File
+$SourceFiles = @(Get-ChildItem -LiteralPath $Source -Recurse -File | Where-Object { $_.Extension -in @('.bak', '.trn') })
+$TargetFiles = @(Get-ChildItem -LiteralPath $Target -Recurse -File | Where-Object { $_.Extension -in @('.bak', '.trn') })
 
 # Check for empty directories
 if ($SourceFiles.Count -eq 0) {
-    Write-ValidationResult "WARNING: No files found in source directory." "Yellow"
-    exit 0
+    Write-ValidationResult "ERROR: No .bak or .trn files found in source directory." "Red"
+    exit 1
 }
 
 if ($TargetFiles.Count -eq 0) {
-    Write-ValidationResult "WARNING: No files found in target directory." "Yellow"
-    exit 0
+    Write-ValidationResult "ERROR: No .bak or .trn files found in target directory." "Red"
+    exit 1
 }
 
 # ============================================================
@@ -96,7 +96,8 @@ Write-ValidationResult "=========================================" "Cyan"
 
 if ($null -eq $Diff) {
     Write-ValidationResult "SUCCESS: Source and Target directories are identical." "Green"
-    Write-ValidationResult "Verification completed: All files match in path and size." "Green"
+    Write-ValidationResult "Verification completed: All backup files match in path and size." "Green"
+    exit 0
 }
 else {
     Write-ValidationResult "WARNING: Differences detected between source and target." "Yellow"
@@ -104,7 +105,7 @@ else {
     # Beautify the difference output
     $Diff | Select-Object @{N='Difference';E={if($_.SideIndicator -eq '<='){'Missing in Target'}else{'Extra in Target'}}}, RelativePath, @{N='Size(Bytes)';E={$_.Length}} | Format-Table -AutoSize
     
-    Write-ValidationResult "Validation failed: Some files are missing or have size discrepancies." "Red"
+    Write-ValidationResult "Validation failed: Some backup files are missing, extra, or have size discrepancies." "Red"
+    Write-ValidationResult "=========================================" "Cyan"
+    exit 2
 }
-
-Write-ValidationResult "=========================================" "Cyan"
