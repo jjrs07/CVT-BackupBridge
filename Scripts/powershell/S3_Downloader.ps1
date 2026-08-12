@@ -1,207 +1,212 @@
-# S3 Multi-Threaded Backup Downloader
-# Description: Discovers backup files in an AWS S3 bucket and downloads them to a local directory.
-# Supports multi-threaded processing, automatic directory creation, and retries.
+# S3 Recovery Downloader
+# Orchestrates AWS CLI v2 to synchronize an Amazon S3 recovery prefix to a local directory.
+# Requires Windows PowerShell 5.1 or later.
+
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
 
 # ============================================================
-# CONFIGURATION LOADING
+# CONFIGURATION
 # ============================================================
+
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$configPath = Join-Path $scriptPath "..\settings.json"
+$configPath = Join-Path $scriptPath '..\settings.json'
 
-if (Test-Path $configPath) {
-    $config = Get-Content $configPath | ConvertFrom-Json
-    $bucket         = $config.S3Bucket
-    $region         = $config.AWSRegion
-    $maxJobs        = $config.MaxSimultaneousJobs
-    $localBackupDir = $config.RestoreRootPath
-    $logFile        = Join-Path $config.LogDirectory "S3Download.log"
-} else {
-    Write-Error "Configuration file not found at $configPath. Please copy settings.json.template to settings.json and update it."
+if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+    $configPath = Join-Path $scriptPath 'settings.json'
+}
+
+if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+    Write-Error 'Configuration file not found. Copy settings.json.template to settings.json and update it.'
     exit 1
 }
 
+try {
+    $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json
+}
+catch {
+    Write-Error "Unable to read configuration file '$configPath': $($_.Exception.Message)"
+    exit 1
+}
+
+$requiredSettings = @(
+    'S3Bucket',
+    'AWSRegion',
+    'RestoreRootPath',
+    'LogDirectory'
+)
+
+foreach ($settingName in $requiredSettings) {
+    $property = $config.PSObject.Properties[$settingName]
+    if ($null -eq $property -or [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        Write-Error "Required configuration value '$settingName' is missing or empty in '$configPath'."
+        exit 1
+    }
+}
+
+$source = ([string]$config.S3Bucket).Trim()
+$region = ([string]$config.AWSRegion).Trim()
+$destination = [string]$config.RestoreRootPath
+$logDirectory = [string]$config.LogDirectory
+
+if (-not $source.StartsWith('s3://', [System.StringComparison]::OrdinalIgnoreCase)) {
+    $source = "s3://$source"
+}
+$source = $source.TrimEnd('/') + '/'
+
+if ($source -notmatch '^s3:\/\/[^\/\s]+(?:\/.*)?$') {
+    Write-Error "S3Bucket is not a valid S3 URI or bucket name: $source"
+    exit 1
+}
+
+try {
+    if (Test-Path -LiteralPath $destination) {
+        if (-not (Test-Path -LiteralPath $destination -PathType Container)) {
+            throw "RestoreRootPath exists but is not a directory: $destination"
+        }
+    }
+    else {
+        New-Item -ItemType Directory -Path $destination -Force | Out-Null
+    }
+
+    if (-not (Test-Path -LiteralPath $destination -PathType Container)) {
+        throw "RestoreRootPath could not be created or accessed: $destination"
+    }
+
+    if (-not (Test-Path -LiteralPath $logDirectory -PathType Container)) {
+        New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+    }
+}
+catch {
+    Write-Error $_.Exception.Message
+    exit 1
+}
+
+$logFile = Join-Path $logDirectory 'S3Download.log'
+
 # ============================================================
-# UTILITY FUNCTIONS
+# LOGGING
 # ============================================================
 
 function Write-Log {
-    param([string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $entry = "[$timestamp] $Message"
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('INFO', 'ERROR')]
+        [string]$Level,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Event,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    $timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    $sanitizedMessage = $Message -replace '[\r\n]+', ' '
+    $sanitizedMessage = $sanitizedMessage -replace '"', '\"'
+    $entry = '{0} level={1} event={2} message="{3}"' -f $timestamp, $Level, $Event, $sanitizedMessage
+
     Write-Host $entry
-    
-    $logDir = Split-Path $logFile
-    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
-    Add-Content -Path $logFile -Value $entry
-}
-
-function Format-Duration {
-    param([int]$seconds)
-    $ts = [TimeSpan]::FromSeconds($seconds)
-    if ($ts.Hours -gt 0) {
-        return "{0:00}:{1:00}:{2:00}" -f $ts.Hours, $ts.Minutes, $ts.Seconds
-    }
-    return "{0:00}:{1:00}" -f $ts.Minutes, $ts.Seconds
+    Add-Content -LiteralPath $logFile -Value $entry -Encoding UTF8
 }
 
 # ============================================================
-# INITIALIZATION
+# AWS CLI VALIDATION
 # ============================================================
 
-# Discover objects in the S3 bucket recursively
-$s3Objects = aws s3 ls $bucket --recursive | 
-    Where-Object { $_ -match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+\d+\s+(.+)$' } | 
-    ForEach-Object { $matches[1] }
-
-if (-not $s3Objects) {
-    Write-Log "No files found in S3 bucket $bucket"
+$awsCommand = Get-Command 'aws' -CommandType Application -ErrorAction SilentlyContinue
+if ($null -eq $awsCommand) {
+    Write-Log -Level 'ERROR' -Event 'PREREQUISITE_FAILED' -Message 'AWS CLI was not found in PATH.'
     exit 1
 }
 
-# Initialize log file
-if (Test-Path $logFile) { Remove-Item $logFile -Force }
+$awsExecutable = $awsCommand.Source
+if ([string]::IsNullOrWhiteSpace($awsExecutable)) {
+    $awsExecutable = $awsCommand.Path
+}
 
-# Ensure local restore root exists
-if (-not (Test-Path $localBackupDir)) { New-Item -ItemType Directory -Path $localBackupDir -Force | Out-Null }
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $awsVersionOutput = (& $awsExecutable --version 2>&1 | Out-String).Trim()
+    $awsVersionExitCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 
-# ============================================================
-# PROCESSING QUEUE SETUP
-# ============================================================
+if ($awsVersionExitCode -ne 0) {
+    Write-Log -Level 'ERROR' -Event 'PREREQUISITE_FAILED' -Message "Unable to execute AWS CLI. ExitCode=$awsVersionExitCode Output=$awsVersionOutput"
+    exit 1
+}
 
-$downloadStartTime = Get-Date
-$total             = $s3Objects.Count
-$completed         = 0
-$failed            = 0
-$maxRetries        = 3
-$activeDownloads   = @{}
-
-Write-Log "===== S3 Download Queue Started ====="
-Write-Log "Total files to download: $total"
-Write-Log "Max simultaneous downloads: $maxJobs"
-Write-Log "Source bucket: $bucket"
-Write-Log "Local destination: $localBackupDir"
-Write-Log "========================================="
-
-# Build queue and ensure local subdirectories exist
-$queue = [System.Collections.Queue]::new()
-foreach ($s3File in $s3Objects) {
-    $localPath = Join-Path $localBackupDir $s3File
-    $localDir  = Split-Path $localPath -Parent
-    if (-not (Test-Path $localDir)) { New-Item -ItemType Directory -Path $localDir -Force | Out-Null }
-    
-    $queue.Enqueue(@{ 
-        S3File    = $s3File
-        LocalPath = $localPath
-        Retries   = 0 
-    })
+if ($awsVersionOutput -notmatch '^aws-cli\/2\.') {
+    Write-Log -Level 'ERROR' -Event 'PREREQUISITE_FAILED' -Message "AWS CLI v2 is required. Detected: $awsVersionOutput"
+    exit 1
 }
 
 # ============================================================
-# MAIN EXECUTION LOOP
+# AWS CLI SYNCHRONIZATION
 # ============================================================
 
-while ($queue.Count -gt 0 -or $activeDownloads.Count -gt 0) {
+$syncArguments = @(
+    's3',
+    'sync',
+    $source,
+    $destination,
+    '--region',
+    $region,
+    '--checksum-mode',
+    'ENABLED',
+    '--no-progress'
+)
 
-    # 1. Start new download jobs up to $maxJobs
-    while ($activeDownloads.Count -lt $maxJobs -and $queue.Count -gt 0) {
-        $item     = $queue.Dequeue()
-        $fileName = Split-Path $item.S3File -Leaf
-        $outFile  = Join-Path (Split-Path $logFile) "$fileName.log"
+$startTime = Get-Date
+$stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$exitCode = 1
 
-        # Prepare AWS CLI arguments
-        $s3Args = @(
-            "s3", "cp", 
-            "$bucket$($item.S3File)", 
-            $item.LocalPath, 
-            "--quiet", 
-            "--region", $region
-        )
+Write-Log -Level 'INFO' -Event 'SYNC_START' -Message "StartTime=$($startTime.ToString('o')) Source=$source Destination=$destination Region=$region AwsCli=$awsVersionOutput"
+Write-Log -Level 'INFO' -Event 'TRANSFER_POLICY' -Message 'Direction=S3-to-local DeleteEnabled=false ChecksumMode=ENABLED TransferEngine=aws-s3-sync'
 
-        $startParams = @{
-            FilePath               = "aws"
-            ArgumentList           = $s3Args
-            RedirectStandardOutput = $outFile
-            RedirectStandardError  = "$outFile.err"
-            NoNewWindow            = $true
-            PassThru               = $true
-        }
+try {
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
 
-        # Start background download
-        $proc = Start-Process @startParams
-
-        $activeDownloads[$proc.Id] = @{
-            Process   = $proc
-            S3File    = $item.S3File
-            LocalPath = $item.LocalPath
-            StartTime = Get-Date
-            OutFile   = $outFile
-            Retries   = $item.Retries
-        }
-        
-        $retryLabel = if ($item.Retries -gt 0) { " (Retry $($item.Retries)/$maxRetries)" } else { "" }
-        Write-Log "STARTED  | $($item.S3File) (PID: $($proc.Id))$retryLabel"
+    try {
+        $awsOutput = & $awsExecutable @syncArguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
     }
 
-    # 2. Monitor and reap finished jobs
-    foreach ($procId in @($activeDownloads.Keys)) {
-        $entry = $activeDownloads[$procId]
-        $proc  = $entry.Process
-
-        if ($proc.HasExited) {
-            $durationSec = [math]::Max(1, ((Get-Date) - $entry.StartTime).TotalSeconds)
-            $downloadSuccess = $false
-
-            # Verification: Check if file exists and has content
-            if ((Test-Path $entry.LocalPath) -and (Get-Item $entry.LocalPath).Length -gt 0) {
-                $downloadSuccess = $true
-            }
-
-            if ($downloadSuccess) {
-                $completed++
-                $fileSize = [math]::Round((Get-Item $entry.LocalPath).Length / 1GB, 2)
-                $mbps     = [math]::Round(($fileSize * 1024 * 8) / $durationSec, 1)
-                Write-Log "COMPLETE | $($entry.S3File) | Size: $fileSize GB | Duration: $(Format-Duration $durationSec) | Speed: $mbps Mbps | Progress: $completed/$total"
-            } else {
-                # Handle failure and extract error messages
-                $errFile = "$($entry.OutFile).err"
-                $errOutput = if (Test-Path $errFile) { Get-Content $errFile -Raw | ForEach-Object { $_.Trim() } } else { "Exit code: $($proc.ExitCode)" }
-                
-                if ($entry.Retries -lt $maxRetries) {
-                    Write-Log "RETRYING | $($entry.S3File) | Attempt $($entry.Retries + 1)/$maxRetries | Error: $errOutput"
-                    $queue.Enqueue(@{ 
-                        S3File    = $entry.S3File
-                        LocalPath = $entry.LocalPath
-                        Retries   = $entry.Retries + 1 
-                    })
-                } else {
-                    $failed++
-                    Write-Log "FAILED   | $($entry.S3File) | Max retries reached | Error: $errOutput"
-                    
-                    # Cleanup incomplete file
-                    if (Test-Path $entry.LocalPath) {
-                        Remove-Item $entry.LocalPath -Force -ErrorAction SilentlyContinue
-                    }
-                }
-            }
-            $activeDownloads.Remove($procId)
+    foreach ($outputLine in $awsOutput) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$outputLine)) {
+            Write-Log -Level 'INFO' -Event 'AWS_CLI_OUTPUT' -Message ([string]$outputLine)
         }
     }
-
-    Start-Sleep -Seconds 10
+}
+catch {
+    Write-Log -Level 'ERROR' -Event 'AWS_CLI_EXCEPTION' -Message $_.Exception.Message
+}
+finally {
+    $stopwatch.Stop()
 }
 
-# ============================================================
-# FINAL REPORTING
-# ============================================================
-
-$totalDurationSec = [math]::Max(1, ((Get-Date) - $downloadStartTime).TotalSeconds)
-Write-Log "========================================="
-Write-Log "===== Download Queue Complete ====="
-Write-Log "Total: $total | Completed: $completed | Failed: $failed | Elapsed: $(Format-Duration $totalDurationSec)"
-Write-Log "Files saved to: $localBackupDir"
-Write-Log "========================================="
-
-if ($failed -gt 0) {
-    Write-Log "Check individual log files in: $(Split-Path $logFile)"
-    Write-Log "Diagnostics: Run 'aws sts get-caller-identity' to verify AWS credentials."
+if ($null -eq $exitCode) {
+    $exitCode = 1
 }
+
+$duration = $stopwatch.Elapsed.ToString('c')
+
+if ($exitCode -eq 0) {
+    Write-Log -Level 'INFO' -Event 'SYNC_COMPLETE' -Message "ExitCode=$exitCode Duration=$duration FinalResult=SUCCESS"
+    exit 0
+}
+
+Write-Log -Level 'ERROR' -Event 'SYNC_COMPLETE' -Message "ExitCode=$exitCode Duration=$duration FinalResult=FAILED"
+exit $exitCode
