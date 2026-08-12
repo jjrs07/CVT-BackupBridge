@@ -141,7 +141,7 @@ function Get-BackupHeader {
             throw 'RESTORE HEADERONLY returned no result set.'
         }
 
-        return $dataSet.Tables[0]
+        return ,$dataSet.Tables[0].Copy()
     }
     finally {
         $adapter.Dispose()
@@ -306,7 +306,7 @@ foreach ($item in $databaseMetadata) {
     }
 }
 
-$eligibleBaseCutoff = if ($RecoveryTarget.HasValue) { $RecoveryTarget.Value } else { [datetime]::MaxValue }
+$eligibleBaseCutoff = if (($null -ne $RecoveryTarget)) { $RecoveryTarget } else { [datetime]::MaxValue }
 
 $fullBackups = @(
     $databaseMetadata |
@@ -384,7 +384,7 @@ if ($incompatibleDifferentials.Count -gt 0) {
 
 $selectedLogs = New-Object System.Collections.Generic.List[object]
 $gapDetected = $false
-$targetCovered = -not $RecoveryTarget.HasValue
+$targetCovered = -not ($null -ne $RecoveryTarget)
 
 if ($null -eq $selectedBase.LastLSN) {
     $warnings.Add('Selected base backup has no LastLSN; a transaction-log chain cannot be established.')
@@ -399,9 +399,9 @@ else {
                 $null -ne $_.FirstLSN -and
                 $null -ne $_.LastLSN -and
                 $_.LastLSN -gt $selectedBase.LastLSN -and
-                (-not $RecoveryTarget.HasValue -or
+                (-not ($null -ne $RecoveryTarget) -or
                     $null -eq $_.BackupStartDate -or
-                    $_.BackupStartDate -le $RecoveryTarget.Value)
+                    $_.BackupStartDate -le $RecoveryTarget)
             } |
             Sort-Object FirstLSN, LastLSN, BackupFinishDate
     )
@@ -449,21 +449,33 @@ else {
         $selectedLogs.Add($next)
         $currentLsn = [decimal]$next.LastLSN
 
-        if ($RecoveryTarget.HasValue -and
+        if (($null -ne $RecoveryTarget) -and
             $null -ne $next.BackupFinishDate -and
-            $next.BackupFinishDate -ge $RecoveryTarget.Value) {
+            $next.BackupFinishDate -ge $RecoveryTarget) {
             $targetCovered = $true
             break
         }
     }
 }
 
-if ($RecoveryTarget.HasValue -and -not $targetCovered) {
-    $warnings.Add("The continuous log sequence does not demonstrate coverage through recovery target $($RecoveryTarget.Value.ToString('o')).")
+if (($null -ne $RecoveryTarget) -and -not $targetCovered) {
+    $warnings.Add("The continuous log sequence does not demonstrate coverage through recovery target $($RecoveryTarget.ToString('o')).")
 }
 
 if ($selectedLogs.Count -eq 0 -and $selectedBase.RecoveryModel -in @('FULL', 'BULK-LOGGED')) {
     $warnings.Add('No transaction-log backup could be chained after the selected base.')
+}
+
+$forkConflict = $false
+$selectedFork = $selectedBase.RecoveryForkID
+if (-not [string]::IsNullOrWhiteSpace($selectedFork)) {
+    foreach ($selectedLog in $selectedLogs) {
+        if (-not [string]::IsNullOrWhiteSpace($selectedLog.RecoveryForkID) -and
+            $selectedLog.RecoveryForkID -ne $selectedFork) {
+            $forkConflict = $true
+            $warnings.Add("Recovery-fork conflict between selected base '$selectedFork' and log '$($selectedLog.RecoveryForkID)': $($selectedLog.FilePath)")
+        }
+    }
 }
 
 $restoreOrder = New-Object System.Collections.Generic.List[object]
@@ -508,7 +520,7 @@ Add-ReportLine $report ('GeneratedUtc: ' + [datetime]::UtcNow.ToString('o'))
 Add-ReportLine $report ('MetadataSqlInstance: ' + $SqlInstance)
 Add-ReportLine $report ('BackupRoot: ' + $resolvedRoot)
 Add-ReportLine $report ('Database: ' + $DatabaseName)
-Add-ReportLine $report ('RecoveryTarget: ' + $(if ($RecoveryTarget.HasValue) { $RecoveryTarget.Value.ToString('o') } else { '[latest continuous point]' }))
+Add-ReportLine $report ('RecoveryTarget: ' + $(if (($null -ne $RecoveryTarget)) { $RecoveryTarget.ToString('o') } else { '[latest continuous point]' }))
 Add-ReportLine $report ('FilesScanned: ' + $files.Count)
 Add-ReportLine $report ('BackupSetsRead: ' + $metadata.Count)
 Add-ReportLine $report ('UnreadableFiles: ' + $unreadable.Count)
@@ -554,8 +566,9 @@ else {
 Add-ReportLine $report ''
 
 $chainValid = (-not $gapDetected -and
+               -not $forkConflict -and
                ($unreadable.Count -eq 0) -and
-               (-not $RecoveryTarget.HasValue -or $targetCovered))
+               (-not ($null -ne $RecoveryTarget) -or $targetCovered))
 
 Add-ReportLine $report ('ChainStatus: ' + $(if ($chainValid) { 'CANDIDATE_CHAIN_ESTABLISHED' } else { 'CHAIN_NOT_ESTABLISHED' }))
 Add-ReportLine $report 'Important: This report does not prove restore compatibility or recoverability.'
