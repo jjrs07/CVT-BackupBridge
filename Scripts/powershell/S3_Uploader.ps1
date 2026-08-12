@@ -114,8 +114,15 @@ if ([string]::IsNullOrWhiteSpace($awsExecutable)) {
     $awsExecutable = $awsCommand.Path
 }
 
-$awsVersionOutput = (& $awsExecutable --version 2>&1 | Out-String).Trim()
-$awsVersionExitCode = $LASTEXITCODE
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    $awsVersionOutput = (& $awsExecutable --version 2>&1 | Out-String).Trim()
+    $awsVersionExitCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 
 if ($awsVersionExitCode -ne 0) {
     Write-Log -Level 'ERROR' -Event 'PREREQUISITE_FAILED' -Message "Unable to execute AWS CLI. ExitCode=$awsVersionExitCode Output=$awsVersionOutput"
@@ -154,8 +161,16 @@ Write-Log -Level 'INFO' -Event 'SYNC_START' -Message "StartTime=$($startTime.ToS
 Write-Log -Level 'INFO' -Event 'TRANSFER_POLICY' -Message 'Includes=*.bak,*.trn DeleteEnabled=false TransferEngine=aws-s3-sync'
 
 try {
-    $awsOutput = & $awsExecutable @syncArguments 2>&1
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+
+    try {
+        $awsOutput = & $awsExecutable @syncArguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 
     foreach ($outputLine in $awsOutput) {
         if (-not [string]::IsNullOrWhiteSpace([string]$outputLine)) {
