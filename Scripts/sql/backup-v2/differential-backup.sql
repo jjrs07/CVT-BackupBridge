@@ -118,7 +118,7 @@ BEGIN TRY
         N'BACKUP DATABASE ' + QUOTENAME(@DatabaseName)
         + N' TO DISK = N''' + REPLACE(@BackupFile, N'''', N'''''') + N''''
         + N' WITH INIT, COMPRESSION, CHECKSUM'
-        , DIFFERENTIAL
+        + N', DIFFERENTIAL'
         + N', NAME = N''' + REPLACE(@BackupName, N'''', N'''''') + N''''
         + N', DESCRIPTION = N''' + REPLACE(@Description, N'''', N'''''') + N''''
         + N', STATS = 10;';
