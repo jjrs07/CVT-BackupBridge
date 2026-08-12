@@ -1,229 +1,142 @@
 # 01 - Environment Preparation
 
-This document outlines the initial setup required to build the **CVT BackupBridge** lab environment. The goal is to simulate an on-premises SQL Server workload and prepare AWS cloud storage for offsite backup protection.
+## Purpose
 
-> [!CAUTION]
-> **Cloud Account & Cost Warning**
-> *   **Free Tier:** It is highly recommended to use **Azure Free Account** and **AWS Free Tier** when following these procedures.
-> *   **Budget Limits:** Set up **Budget Alerts** and **Cost Limits** in both Azure and AWS billing consoles immediately upon account creation to prevent unexpected charges.
-> *   **Liability Disclaimer:** The author is not responsible or liable for any expenses, charges, or financial costs incurred in your cloud accounts while following this guide. You are solely responsible for monitoring your own cloud consumption and costs.
+Prepare a learner-safe BackupBridge lab. These steps describe prerequisites; the repository does not provision Azure, AWS, SQL Server, IAM, S3, KMS, lifecycle, Versioning, or Object Lock.
 
----
+For the authoritative capability boundary, read [the v2 architecture guide](14-v2-architecture-and-capability-guide.md).
 
-## Table of Contents
-1. [Objective](#objective)
-2. [Solution Components](#solution-components)
-3. [Step 1 - Build Azure SQL Server VM](#step-1---build-azure-sql-server-vm)
-4. [Step 2 - Create Dedicated Backup Storage](#step-2---create-dedicated-backup-storage)
-5. [Step 3 - Create Test Databases](#step-3---create-test-databases)
-6. [Step 4 - Prepare AWS S3 Bucket](#step-4---prepare-aws-s3-bucket)
-7. [Step 5 - Create IAM User for Script Access](#step-5---create-iam-user-for-script-access)
-8. [Step 6 - Install AWS CLI on SQL Server](#step-6---install-aws-cli-on-sql-server)
-9. [Validation Checklist](#validation-checklist)
+## LAB / POC implementation
 
----
+The demonstrated lab used:
 
-## Objective
+- an Azure VM to simulate an on-premises Windows SQL Server;
+- Windows Server 2019 and SQL Server 2019 Developer Edition;
+- a dedicated local backup volume;
+- a private S3 bucket;
+- AWS CLI v2; and
+- Windows PowerShell 5.1+.
 
-Prepare the following components:
-*   SQL Server host environment
-*   Test databases (including scaling simulation)
-*   Dedicated local backup storage
-*   AWS S3 bucket
-*   IAM access for automation scripts
+These are examples, not production sizing or a full support matrix. Use supported operating-system, SQL Server, PowerShell, and AWS CLI versions in any new deployment.
 
----
+## Production-hardened recommendation
 
-## Solution Components
+Use Infrastructure as Code, separate accounts/administration where required, temporary workload credentials, centralized logging/monitoring, tested KMS recovery, and business-approved retention/RPO/RTO. See the [S3 security model](08-s3-security-model-v2.md).
 
-### Simulated On-Premises SQL Server
-The "on-premises" environment is hosted on an Azure Virtual Machine to simulate a remote corporate data center.
+## 1. Recovery objectives and cost controls
 
-**Platform Details:**
-*   **Provider:** Microsoft Azure
-*   **OS:** Windows Server 2019
-*   **Database:** SQL Server 2019 Developer Edition
+Before creating resources:
 
-> [!NOTE]
-> While this lab uses Azure, you can also simulate the "on-premises" environment using a local virtual machine (Oracle VirtualBox, VMware), a local workstation, or even a dedicated physical server. The BackupBridge logic remains identical regardless of the underlying hardware.
+1. Define database scope, required point-in-time window, RPO, RTO, retention, ransomware threat model, and evidence requirements.
+2. Select a Region and recovery location consistent with data residency and latency requirements.
+3. Establish cloud budgets and alerts.
+4. Obtain approval for any Object Lock retention. Object Lock can prevent deletion and increase cost.
 
----
+Do not claim a target RPO/RTO until it is measured with the project runbook.
 
-## Step 1 - Build Azure SQL Server VM
+## 2. Source SQL Server lab host
 
-Provision a Windows Server virtual machine in Azure.
+Create an isolated learner VM or use a local hypervisor. A reasonable lab starting point is 2 vCPU and 8 GiB RAM, adjusted for the test database. Restrict RDP, patch Windows and SQL Server, and install SSMS or `sqlcmd` as appropriate.
 
-> [!TIP]
-> Use the **"SQL Server 2019 on Windows Server 2019"** image from the Azure Marketplace to save time. It comes with SQL Server and SSMS pre-installed.
+Prepare separate paths where practical:
 
-### Recommended Baseline Configuration
-*   **Compute:** Minimum 2 vCPU / 8 GB RAM
-*   **Storage:** Premium SSD (for consistent IOPS)
-*   **Security:** RDP enabled (restricted to your client IP)
+```text
+F:\Data
+G:\Logs
+T:\TempDB
+H:\SQLBackups
+H:\SQLRestore
+C:\Logs
+```
 
-### Post-Installation Tasks
-1.  Install **SQL Server Management Studio (SSMS)** if not using a pre-configured image.
-2.  Verify local connectivity to the SQL instance.
-3.  **Update:** Run Windows Update and install the latest SQL Server Cumulative Updates (CU).
+The dedicated backup path reduces contention and prevents backup growth from filling the OS volume. It is still local staging and not offsite protection.
 
----
+Use AdventureWorks or disposable test databases. The scripts under `Scripts/SQL` that grow data/logs are workload simulators; inspect them and run only in an approved lab.
 
-## Step 2 - Create Dedicated Backup Storage
+## 3. S3 bucket prerequisites
 
-![Disk Placement](Images/disk_placement.png)
-*Figure 1: Dedicated multi-disk configuration in Azure for SQL Server I/O separation.*
+Create a dedicated private bucket/prefix through the approved process.
 
-Create a separate volume or drive dedicated exclusively for SQL backup files.
+### LAB / POC baseline
 
-### Configuration
+- Block Public Access enabled.
+- Default SSE-S3 encryption.
+- HTTPS access.
+- Dedicated non-production prefix.
+- Versioning enabled when testing version recovery.
+- Object Lock only in a purpose-built disposable bucket using the short Governance-mode lab design in the security guide.
 
-To follow production best practices and ensure optimal performance, the lab environment utilizes a multi-disk architecture to separate I/O workloads:
+### Production-hardened baseline
 
-*   **Drive C:** Operating System (OS) and SQL Server Binaries.
-*   **Drive F:** SQL Data Files (`F:\Data`).
-*   **Drive G:** SQL Log Files (`G:\Logs`).
-*   **Drive T:** TempDB (Dedicated high-speed storage for temporary objects).
-*   **Drive H:** Dedicated Backup Storage (`H:\SQLBackups`).
+- Account- and bucket-level Block Public Access.
+- HTTPS-only bucket policy.
+- Versioning kept enabled.
+- Approved Object Lock mode/retention when required.
+- SSE-KMS with a customer-managed key only when its operational and recovery dependencies are accepted.
+- Lifecycle aligned with retention and restore-time objectives.
+- CloudTrail, inventory/monitoring, alerts, and protected administration.
 
-**Backup Storage Details:**
-*   **Path:** `H:\SQLBackups`
-*   **Recommended Size:** 500 GB to 1 TB (to accommodate LargeDB and enterprise-scale backup files).
+S3 offsite storage is not automatically an air gap. It remains online. Versioning and Object Lock can strengthen ransomware resilience but must be combined with isolated credentials and administration.
 
-> [!IMPORTANT]
-> In Azure, you must attach a **Data Disk** to the VM. Once attached, use `diskmgmt.msc` (Disk Management) to initialize the disk, create a simple volume, and format it as NTFS.
+## 4. IAM and credentials
 
-### Why This Matters
-*   **Separation of Concerns:** Keeps the OS drive clean and prevents it from filling up during large backup operations.
-*   **Performance:** Spreads I/O load across multiple physical/virtual disks.
-*   **Automation:** Provides a static, predictable path for PowerShell scripts.
+Use the separated examples under `Scripts/iam`:
 
----
+- Backup Writer for the source/upload host.
+- Recovery Reader for the separate recovery host.
 
-## Step 3 - Create Test Databases
+Do not use `Scripts/cvt-s3-policy.json` as the v2 production policy; it is a legacy combined lab artifact with read/write/delete capability.
 
-### A. Initial Database Setup
-Create sample databases to validate backup and restore operations.
-*   **Option 1:** Restore the [AdventureWorks](https://learn.microsoft.com/en-us/sql/samples/adventureworks-install-configure) sample database.
-*   **Option 2:** Create a new empty database (e.g., `LargeDB`).
+### LAB / POC
 
-### B. Simulating Enterprise Scale (LargeDB)
-To benchmark upload/download speeds and bridge performance, we simulate a larger footprint.
+If the learning environment cannot deliver role credentials, a dedicated IAM user with no console access may be used temporarily. Scope it to the appropriate v2 policy, protect/rotate the key, and remove it after the exercise. This is a lab compromise, not the preferred architecture.
 
-1.  **Grow the Database:** Use the provided simulation scripts to insert records and increase file size.
-    *   `Scripts/SQL/Increase_logsize_simulator.sql`
-    *   `Scripts/SQL/AutoGrow_DBsize.sql`
-2.  **Testing Goals:**
-    *   Validate **Backup Duration**.
-    *   Measure **S3 Transfer Performance**.
-    *   Benchmark **Disaster Recovery (DR) Restore Timing**.
+### Production-hardened
 
-![SQL Databases](Images/SQL_Database.png)
-*Figure 2: Test databases (AdventureWorks and LargeDB) successfully initialized in SSMS.*
+Prefer temporary credentials from roles/federation and separate writer/recovery trust paths. For non-AWS Windows hosts, use an organization-approved workload identity or role-assumption pattern. This repository does not implement credential vending.
 
----
+Never place credentials in scripts, `settings.json`, Git, logs, screenshots, or documentation. Do not copy Backup Writer credentials to recovery.
 
-## Step 4 - Prepare AWS S3 Bucket
+## 5. AWS CLI v2 and PowerShell
 
-Create an Amazon S3 bucket to serve as the offsite "vault."
+Install AWS CLI v2 from the approved source and verify:
 
-> [!NOTE]
-> Bucket creation is a straightforward process: enter the bucket name and leave the remaining settings as default.
+```powershell
+aws --version
+aws sts get-caller-identity
+```
 
-### Setup Guide
-*   **Bucket Name:** e.g., `cvtech-sql-backups`
-*   **Access:** Block all public access (Default).
-*   **Versioning:** Optional (useful for ransomware protection).
+The transfer scripts require Windows PowerShell 5.1 or later and explicitly reject AWS CLI v1. They are designed against Windows PowerShell 5.1; PowerShell 7 is not the documented validation baseline.
 
-### S3 Bucket Naming Requirements
-*   **Length:** 3 to 63 characters.
-*   **Characters:** Lowercase letters, numbers, dots (.), and hyphens (-) only.
-*   **Start/End:** Must begin and end with a letter or number.
-*   **Uniqueness:** Must be globally unique across all AWS accounts.
+AWS CLI v2 internally manages transfer concurrency, multipart work, and request retries. The PowerShell scripts do not maintain their own queues or concurrency settings.
 
-![S3 Bucket](Images/s3-bucket.png)
-*Figure 3: AWS S3 bucket successfully created for offsite backup storage.*
+## 6. Configuration
 
----
+Copy `Scripts/settings.json.template` to `Scripts/settings.json` and set:
 
-## Step 5 - Create IAM User for Script Access
+```json
+{
+  "S3Bucket": "s3://<bucket>/<optional-prefix>",
+  "AWSRegion": "<region>",
+  "BackupRootPath": "H:\\SQLBackups",
+  "RestoreRootPath": "H:\\SQLRestore",
+  "LogDirectory": "C:\\Logs"
+}
+```
 
-This step ensures the automation scripts can communicate with AWS securely using the **Principle of Least Privilege**. We will create a custom policy and a dedicated user with **Programmatic Access** only (no console login).
+`settings.json` contains environment metadata, not credentials, and is ignored by Git. `S3Bucket` may contain a bucket name or S3 URI/prefix.
 
-### A. Create the Scoped IAM Policy
-1.  Navigate to **IAM > Policies** in the AWS Console.
-2.  Click **Create policy** and select the **JSON** tab.
-3.  Copy and paste the content from `Scripts/cvt-s3-policy.json`.
-    *   *Note: Ensure you have updated the bucket name placeholder in the JSON to match your actual bucket.*
-4.  Click **Next: Tags** > **Next: Review**.
-5.  Name the policy `CVT-BackupBridge-Policy` and click **Create policy**.
+## Validation checklist
 
-### B. Create the Programmatic IAM User
-1.  Navigate to **IAM > Users** and click **Create user**.
-2.  **User details:** Name the user `cvt-backup-service`.
-3.  **Set permissions:**
-    *   Select **Attach policies directly**.
-    *   Search for and select the `CVT-BackupBridge-Policy` you just created.
-4.  **Review and create:** Click **Create user**.
+- [ ] Lab/non-production source and separate recovery hosts are identified.
+- [ ] Source SQL Server is online and patched.
+- [ ] Backup/restore/log paths exist with least-privilege filesystem access.
+- [ ] S3 bucket/prefix is private and in the intended account/Region.
+- [ ] Encryption, Versioning, Object Lock, and lifecycle states are recorded—not assumed.
+- [ ] Writer and reader identities are separate and least privilege.
+- [ ] AWS CLI v2 and Windows PowerShell 5.1+ are available.
+- [ ] `settings.json` contains no secret.
+- [ ] RPO/RTO and retention expectations are documented as targets pending measurement.
 
-### C. Generate Access Keys
-1.  Select the newly created `cvt-backup-service` user.
-2.  Go to the **Security credentials** tab.
-3.  Scroll down to **Access keys** and click **Create access key**.
-4.  Select **Command Line Interface (CLI)** as the use case.
-5.  **Retrieve Keys:** Copy the **Access Key ID** and **Secret Access Key**.
+Next: [02 - Local Backup Storage](02-local-backup-storage.md).
 
-> [!NOTE]
-> **Data Sensitivity & Security:**
-> To maintain the highest security standards and prevent the exposure of sensitive Account IDs or ARNs, screenshots of the IAM user creation process are intentionally omitted from this guide. 
-> 
-> **Important Reminder:** You should follow the same practice. Never share screenshots of your IAM console, Access Keys, or Account IDs in public forums, repositories, or unsecured documentation.
-
-> [!IMPORTANT]
-> **Programmatic Access vs. Console Access:**
-> By default, this user has no password and cannot log in to the AWS Management Console website. It can only interact with AWS via the CLI or PowerShell using the Access Keys. This significantly reduces the attack surface.
-
-> [!WARNING]
-> **NEVER** commit your AWS Access Keys or Secrets to source control. Use environment variables or a secure local credential store on your SQL VM.
-
----
-
-## Step 6 - Install AWS CLI on SQL Server
-
-To enable the PowerShell automation scripts to communicate with AWS S3, the **AWS Command Line Interface (CLI) v2** must be installed on the SQL Server host.
-
-### Installation Steps
-1.  Download the **AWS CLI MSI installer** for Windows: [AWS CLI v2 Installer](https://awscli.amazonaws.com/AWSCLIV2.msi).
-2.  Run the installer and follow the on-screen prompts (standard installation).
-3.  **Verify Installation:** Open a PowerShell window and run:
-    ```powershell
-    aws --version
-    ```
-4.  **Configure Credentials:** Run the following command to input your Access Keys and Region:
-    ```powershell
-    aws configure
-    ```
-    *   **AWS Access Key ID:** (From Step 5)
-    *   **AWS Secret Access Key:** (From Step 5)
-    *   **Default region name:** (e.g., `ap-southeast-1`)
-    *   **Default output format:** `json`
-
----
-
-## Validation Checklist
-
-Before moving to the next phase, ensure:
-- [ ] Azure VM is accessible via RDP.
-- [ ] SQL Server instance is responsive.
-- [ ] Test databases (`AdventureWorks`/`LargeDB`) are online.
-- [ ] Dedicated `H:\SQLBackups` drive is formatted and ready.
-- [ ] AWS S3 bucket is created and private.
-- [ ] IAM User has been created with the correct policy applied.
-- [ ] AWS CLI v2 is installed and configured on the SQL Server.
-
----
-
-## Output of This Phase
-
-You now have a fully functional "On-Premises" SQL environment and a secure Cloud Storage target. You are ready to automate the bridge.
-
-**Next Step:** [02 - Local Backup Storage](02-local-backup-storage.md)
