@@ -25,7 +25,7 @@ The objective of this phase is to:
 
 ## Directory Structure
 
-A standardized directory structure ensures that PowerShell automation scripts (Uploader/Downloader) can find files without complex searching. This project utilizes a production-grade hierarchy that accounts for multi-server environments.
+A standardized directory structure ensures that PowerShell automation scripts (Uploader/Downloader) can find files without complex searching. The lab uses a hierarchy that also scales to multiple servers and databases; production suitability still depends on capacity, permissions, monitoring, and tested retention.
 
 ### Recommended Layout
 ```text
@@ -43,7 +43,7 @@ By separating backups by server, database, and type, we reduce the complexity of
 
 ## Naming Conventions
 
-Consistency in naming allows scripts to parse metadata (like database name and date) directly from the filename.
+Consistent naming improves operations and uniqueness. Restore-chain selection must use SQL backup metadata rather than filenames alone.
 
 ### Pattern
 `SQLServer_{DatabaseName}_{BackupType}_{YYYYMMDD_HHMM}.{Extension}`
@@ -61,7 +61,7 @@ Backup files contain sensitive data and must be protected.
 
 ### File System Permissions (NTFS)
 *   **SQL Server Service Account:** Full Control (Required to write backups).
-*   **Automation Account (IAM Sync):** Read/Modify (Required to read files for S3 upload and delete after retention).
+*   **Backup transfer service identity:** Read access for upload. Grant local deletion only to a separately approved local-retention process; the uploader does not delete files.
 *   **Administrators:** Full Control.
 *   **Everyone/Users:** No Access.
 
@@ -75,7 +75,9 @@ Backup files contain sensitive data and must be protected.
 Local storage is a transient "staging area" rather than long-term storage.
 
 *   **Capacity Monitoring:** SQL Server Agent alerts should be configured for low disk space on the `H:` drive.
-*   **Cleanup Trigger:** The `S3_Uploader.ps1` script is responsible for verifying a successful cloud upload before purging the local copy.
+*   **Cleanup ownership:** `S3_Uploader.ps1` does not purge local files. Use a separate, chain-aware local-retention job only after transfer, object/version, checksum/manifest, and SQL verification gates are satisfied.
+*   **Cloud retention:** S3 Lifecycle manages cloud transitions and expiration. Never use `aws s3 sync --delete` as a retention mechanism.
+*   **Retention separation:** Local staging retention is short and operational; S3 retention is longer and policy-driven. See [the retention model](11-backup-retention-model.md).
 
 ![Backup Files on H Drive](Images/Backup_Files_H_Drive.png)
 
